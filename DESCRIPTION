@@ -1,0 +1,22 @@
+Package: investdatar
+Title: Investment Data Access and Preparation Toolkit
+Version: 0.0.2
+Authors@R: 
+    person("Oliver", "Lee", email = "olee7149@gmail.com", role = c("aut", "cre"))
+Description: A toolkit for loading, transforming, and managing 
+    structured investment-related data. Includes functions for retrieving 
+    macroeconomic series from FRED, detecting gaps in market candle data, 
+    and syncing datasets between local machines and cloud VMs. Provides 
+    utilities for working with crypto exchange data (e.g., OKX) and preparing 
+    time-aligned datasets for analysis and trading.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 3.5.0)
+Imports:
+    data.table,
+    jsonlite,
+    curl
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
