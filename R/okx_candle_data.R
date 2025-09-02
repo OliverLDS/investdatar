@@ -76,7 +76,7 @@ download_candle_from_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv(
 #'
 #' @return Integer status code from system().
 #' @export
-upload_candle_from_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
+upload_candle_to_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
   system(sprintf("gcloud compute scp %s/%s/%s_%s.rds %s:%s/%s --zone=%s", 
     crypto_data_path, exchange, inst_id, bar, vm_name, crypto_data_path, exchange, vm_zone))
 }

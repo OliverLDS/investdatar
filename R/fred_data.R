@@ -99,3 +99,15 @@ get_source_metadata_fred <- function(series_id, config) {
   list(title = res$title, start = res$observation_start, end = res$observation_end, freq = res$frequency, units = res$units, season = res$seasonal_adjustment)
 }
 
+#' @export
+download_fred_from_vm <- function(series_id, fred_data_path = Sys.getenv("FRED_Data_Path"), vm_name, vm_zone) {
+  system(sprintf("gcloud compute scp %s:%s/%s.rds %s --zone=%s", 
+    vm_name, fred_data_path, series_id, fred_data_path, vm_zone))
+}
+
+#' @export
+upload_fred_to_vm <- function(series_id, fred_data_path = Sys.getenv("FRED_Data_Path"), vm_name, vm_zone) {
+  system(sprintf("gcloud compute scp %s/%s.rds %s:%s --zone=%s", 
+    fred_data_path, series_id, vm_name, fred_data_path, vm_zone))
+}
+
