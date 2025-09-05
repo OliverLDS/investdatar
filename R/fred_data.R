@@ -100,14 +100,24 @@ get_source_metadata_fred <- function(series_id, config) {
 }
 
 #' @export
-download_fred_from_vm <- function(series_id, fred_data_path = Sys.getenv("FRED_Data_Path"), vm_name, vm_zone) {
-  system(sprintf("gcloud compute scp %s:%s/%s.rds %s --zone=%s", 
-    vm_name, fred_data_path, series_id, fred_data_path, vm_zone))
+download_fred_from_vm <- function(vm_name, vm_zone, series_id = NULL, fred_data_path = Sys.getenv("FRED_Data_Path")) {
+  if (is.null(series_id)) {
+    system(sprintf("gcloud compute scp --recurse %s:%s/* %s --zone=%s", 
+      vm_name, fred_data_path, fred_data_path, vm_zone))
+  } else {
+    system(sprintf("gcloud compute scp %s:%s/%s.rds %s --zone=%s", 
+      vm_name, fred_data_path, series_id, fred_data_path, vm_zone))
+  }
 }
 
 #' @export
-upload_fred_to_vm <- function(series_id, fred_data_path = Sys.getenv("FRED_Data_Path"), vm_name, vm_zone) {
-  system(sprintf("gcloud compute scp %s/%s.rds %s:%s --zone=%s", 
-    fred_data_path, series_id, vm_name, fred_data_path, vm_zone))
+upload_fred_to_vm <- function(vm_name, vm_zone, series_id = NULL, fred_data_path = Sys.getenv("FRED_Data_Path")) {
+  if (is.null(series_id)) {
+    system(sprintf("gcloud compute scp --recurse %s/* %s:%s --zone=%s", 
+      fred_data_path, vm_name, fred_data_path, vm_zone))
+  } else {
+    system(sprintf("gcloud compute scp %s/%s.rds %s:%s --zone=%s", 
+      fred_data_path, series_id, vm_name, fred_data_path, vm_zone))
+  }
 }
 
