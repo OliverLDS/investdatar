@@ -48,13 +48,23 @@ get_source_utime_okx_candle <- function(bar, tz) {
 #' @export
 get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config, tz = "Asia/Hong_Kong") {
   dt <- okxr::get_market_candles(inst_id, bar, limit, config, tz)
-  invisible(dt[confirm==1L])
+  if (is.null(dt)) {
+    return(NULL)
+  } else {
+    data.table::setnames(dt, 'timestamp', 'datetime')
+    return(invisible(dt[confirm==1L]))
+  }
 }
 
 #' @export
 get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit = 100L, config, tz = "Asia/Hong_Kong") {
   dt <- okxr::get_market_history_candles(inst_id, bar, before, limit, config, tz)
-  invisible(dt[confirm==1L])
+  if (is.null(dt)) {
+    return(NULL)
+  } else {
+    data.table::setnames(dt, 'timestamp', 'datetime')
+    return(invisible(dt[confirm==1L]))
+  }
 }
 
 #' Download Candle File from VM
@@ -105,20 +115,11 @@ upload_candle_to_vm <- function(inst_id = NULL, bar = "4H", crypto_data_path = S
   }
 }
 
-#' Detect Time Gaps in Candle Data
-#'
-#' Find gaps larger than expected between consecutive candle timestamps.
-#'
-#' @param dt data.frame or data.table with column timestamp (POSIXct).
-#' @param bar Character. OKX timeframe tag (default: "4H").
-#' @param tolerance Numeric. Relative tolerance (default: 0.0001).
-#'
-#' @return data.table with columns: gap_index, from_time, to_time, actual_minutes, expected_minutes.
 #' @export
 detect_time_gaps_okx_candle <- function(dt, bar = '4H', tolerance = 0.0001) {
 
-  dt <- dt[order(as.numeric(dt$timestamp)), ]
-  ts_numeric <- as.numeric(dt$timestamp)
+  dt <- dt[order(as.numeric(dt$datetime)), ]
+  ts_numeric <- as.numeric(dt$datetime)
   dt_minutes <- diff(ts_numeric) / 60
 
   expected_dt <- .okx_candle_timeframe_to(bar, 'minutes')
@@ -131,8 +132,8 @@ detect_time_gaps_okx_candle <- function(dt, bar = '4H', tolerance = 0.0001) {
 
   data.table::data.table(
     gap_index     = gap_idx,
-    from_time     = dt$timestamp[gap_idx],
-    to_time       = dt$timestamp[gap_idx + 1],
+    from_time     = dt$datetime[gap_idx],
+    to_time       = dt$datetime[gap_idx + 1],
     actual_minutes  = dt_minutes[gap_idx],
     expected_minutes = expected_dt
   )
