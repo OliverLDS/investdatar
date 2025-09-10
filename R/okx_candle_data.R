@@ -45,6 +45,18 @@ get_source_utime_okx_candle <- function(bar, tz) {
   as.POSIXct(format(now, "%Y-%m-%d 00:00:00"), tz = tz) + floored
 }
 
+#' @export
+get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config, tz = "Asia/Hong_Kong") {
+  dt <- okxr::get_market_candles(inst_id, bar, limit, config, tz)
+  invisible(dt[confirm==1L])
+}
+
+#' @export
+get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit = 100L, config, tz = "Asia/Hong_Kong") {
+  dt <- okxr::get_market_history_candles(inst_id, bar, before, limit, config, tz)
+  invisible(dt[confirm==1L])
+}
+
 #' Download Candle File from VM
 #'
 #' Use gcloud scp to copy a candle .rds file from a VM to local.
@@ -58,9 +70,15 @@ get_source_utime_okx_candle <- function(bar, tz) {
 #'
 #' @return Integer status code from system().
 #' @export
-download_candle_from_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
-  system(sprintf("gcloud compute scp %s:%s/%s/%s_%s.rds %s/%s --zone=%s", 
-    vm_name, crypto_data_path, exchange, inst_id, bar, crypto_data_path, exchange, vm_zone))
+download_candle_from_vm <- function(inst_id = NULL, bar = "4H", crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
+  okx_data_path <- sprintf("%s/%s", crypto_data_path, exchange)
+  if (is.null(inst_id)) {
+    system(sprintf("gcloud compute scp --recurse %s:%s/* %s --zone=%s", 
+      vm_name, okx_data_path, okx_data_path, vm_zone))
+  } else {
+    system(sprintf("gcloud compute scp %s:%s/%s_%s.rds %s --zone=%s", 
+      vm_name, okx_data_path, inst_id, bar, okx_data_path, vm_zone))
+  }
 }
 
 #' Upload Candle File to VM
@@ -76,9 +94,15 @@ download_candle_from_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv(
 #'
 #' @return Integer status code from system().
 #' @export
-upload_candle_to_vm <- function(inst_id, bar, crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
-  system(sprintf("gcloud compute scp %s/%s/%s_%s.rds %s:%s/%s --zone=%s", 
-    crypto_data_path, exchange, inst_id, bar, vm_name, crypto_data_path, exchange, vm_zone))
+upload_candle_to_vm <- function(inst_id = NULL, bar = "4H", crypto_data_path = Sys.getenv("Crypto_Data_Path"), exchange = 'okx', vm_name, vm_zone) {
+  okx_data_path <- sprintf("%s/%s", crypto_data_path, exchange)
+  if (is.null(inst_id)) {
+    system(sprintf("gcloud compute scp --recurse %s/* %s:%s --zone=%s", 
+      okx_data_path, vm_name, okx_data_path, vm_zone))
+  } else {
+    system(sprintf("gcloud compute scp %s/%s_%s.rds %s:%s --zone=%s", 
+      okx_data_path, inst_id, bar, vm_name, okx_data_path, vm_zone))
+  }
 }
 
 #' Detect Time Gaps in Candle Data
@@ -114,34 +138,7 @@ detect_time_gaps_okx_candle <- function(dt, bar = '4H', tolerance = 0.0001) {
   )
 }
 
-# sync_and_save_candles <- function(df_new, data_path) {
-#   df_new <- df_new[df_new$confirm==1L,]
-#   key_column <- "timestamp"
-#   
-#   if (!file.exists(data_path)) {
-#     df_new <- df_new[order(as.numeric(df_new$timestamp)), ] 
-#     .safe_save_rds(df_new, data_path)
-#     return(TRUE)
-#   } else {
-#     df_old <- .safe_read_rds(data_path)
-#     old_keys <- as.character(unique(df_old[[key_column]]))
-#     res <- util_sync_new_records(df_new, key_column, old_keys)
-#     if (res$has_new) {
-#       df_combined <- rbind(df_old, res$df)
-#       df_combined <- df_combined[order(as.numeric(df_combined[[key_column]])), ]
-#       .safe_save_rds(df_combined, data_path)
-#     }
-#     return(res$has_new)
-#   }
-# }
 
-# load_candle_df <- function(inst_id, bar, root_path) { # we need to allow for more than one exchange in the future
-#   candle_df_path <- file.path(root_path, sprintf("%s_%s.rds", inst_id, bar))
-#   candle_df <- readRDS(candle_df_path)
-#   data.table::setattr(candle_df, "inst_id", inst_id)
-#   data.table::setattr(candle_df, "bar", bar)
-#   candle_df
-# }
 
 # prep_candle_dt <- function(candle_df, bg_time = NULL, ed_time = NULL, tz = Sys.timezone()) {
 # 

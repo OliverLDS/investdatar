@@ -5,8 +5,8 @@
 \title{Download Candle File from VM}
 \usage{
 download_candle_from_vm(
-  inst_id,
-  bar,
+  inst_id = NULL,
+  bar = "4H",
   crypto_data_path = Sys.getenv("Crypto_Data_Path"),
   exchange = "okx",
   vm_name,
