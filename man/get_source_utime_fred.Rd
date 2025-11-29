@@ -4,7 +4,12 @@
 \alias{get_source_utime_fred}
 \title{Get FRED Series Last Update Time}
 \usage{
-get_source_utime_fred(series_id, config)
+get_source_utime_fred(
+  series_id,
+  config,
+  from_server = FALSE,
+  tz = "America/Chicago"
+)
 }
 \arguments{
 \item{series_id}{Character. FRED series ID.}

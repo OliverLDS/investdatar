@@ -38,18 +38,25 @@ get_source_data_fred <- function(series_id, config) {
 #'
 #' @return POSIXct (UTC).
 #' @export
-get_source_utime_fred <- function(series_id, config) {
-  api_key <- config$api_key
-  url <- config$url
-  mode <- config$mode
-  
-  url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
-  # data <- jsonlite::fromJSON(url)
-  res <- curl::curl_fetch_memory(url)
-  data <- jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
-  
-  update_time_str <- data$seriess$last_updated # UTC+5 by defult
-  as.POSIXct(update_time_str, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
+get_source_utime_fred <- function(series_id, config, from_server = FALSE, tz = "America/Chicago") {
+  if (from_server) {
+    api_key <- config$api_key
+    url <- config$url
+    mode <- config$mode
+    
+    url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
+    # data <- jsonlite::fromJSON(url)
+    res <- curl::curl_fetch_memory(url)
+    data <- jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+    
+    update_time_str <- data$seriess$last_updated # we suppose it is central time
+    out <- as.POSIXct(update_time_str, format = "%Y-%m-%d %H:%M:%S", tz = tz)
+  } else {
+    now <- Sys.time()
+    latest_midnight_in_tz_string <- format(now, "%Y-%m-%d 00:00:00", tz = tz)
+    out <- as.POSIXct(latest_midnight_in_tz_string, tz = tz)
+  }
+  out
 }
 
 #' Retrieve metadata for a FRED series
