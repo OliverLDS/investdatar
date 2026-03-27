@@ -182,7 +182,7 @@
   
   out <- .get_xml_xls(file_path, sheet_name, n_headrows, n_bottoms, col_labels = col_labels, use_head_match = TRUE)
   
-  out <- out[, .(
+  out <- out[, list(
     date  = .to_date(`As Of`, fmt = "%b %d, %Y"),
     nav   = .to_num(`NAV per Share`),
     ex_div = .to_num(`Ex-Dividends`, NA_to_zero = TRUE),
@@ -233,13 +233,46 @@
  
 }
 
+#' Get iShares Historical Data
+#'
+#' Downloads and parses the historical sheet for a single iShares fund using
+#' the local iShares registry metadata.
+#'
+#' @param ticker ETF ticker.
+#' @param ishare_mega_data Optional iShares registry table.
+#' @param cache_dir Optional download cache directory.
+#' @param local_path Optional local storage path used to resolve defaults.
+#'
+#' @return `data.table`.
 #' @export
-get_source_data_ishare <- function(ticker, ishare_mega_data, cache_dir) {
+get_source_data_ishare <- function(ticker, ishare_mega_data = NULL, cache_dir = NULL, local_path = NULL) {
+  if (is.null(local_path)) {
+    local_path <- tryCatch(get_source_data_path("ishare", create = TRUE), error = function(e) NULL)
+  }
+  if (is.null(cache_dir) && !is.null(local_path)) {
+    cache_dir <- file.path(local_path, "_cache")
+  }
+  if (!is.null(cache_dir)) {
+    dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+  }
+  if (is.null(ishare_mega_data)) {
+    ishare_mega_data <- get_local_ishare_mega_data(local_path = local_path)
+  }
   prod_url <- ishare_mega_data[Ticker == ticker, etf_href]
   file_path <- .download_ishare_xls_file(prod_url, cache_dir = cache_dir)
   .wraggle_historical_data(file_path)
 }
 
+#' Get iShares Source Update Time
+#'
+#' Returns a best-effort upstream update time for iShares data. When
+#' `check_online = TRUE`, the function scrapes the product page; otherwise it
+#' falls back to the latest midnight in `tz`.
+#'
+#' @param tz Time zone used for the returned timestamp.
+#' @param check_online Logical. Scrape iShares online when `TRUE`.
+#'
+#' @return POSIXct.
 #' @export
 get_source_utime_ishare <- function(tz = 'America/New_York', check_online = TRUE) {
   if (check_online) {
@@ -258,5 +291,78 @@ get_source_utime_ishare <- function(tz = 'America/New_York', check_online = TRUE
   }
 }
 
+#' Get Local iShares Historical Data
+#'
+#' @param ticker ETF ticker.
+#' @param local_path Optional local storage path.
+#'
+#' @return `data.table` or `NULL`.
+#' @export
+get_local_ishare_data <- function(ticker, local_path = NULL) {
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("ishare")
+  }
+  dt <- .read_local_data_table(file.path(local_path, paste0(ticker, "_historical.rds")), sort_cols = "date")
+  if (!is.null(dt) && !"ticker" %in% names(dt)) {
+    dt[, ticker := ticker]
+    data.table::setcolorder(dt, c("ticker", setdiff(names(dt), "ticker")))
+  }
+  dt
+}
 
+#' Get Local iShares Metadata Snapshot
+#'
+#' @param local_path Optional local storage path.
+#'
+#' @return `data.table` or `NULL`.
+#' @export
+get_local_ishare_mega_data <- function(local_path = NULL) {
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("ishare")
+  }
+  .read_local_data_table(file.path(local_path, "mega_data.rds"), sort_cols = "Ticker")
+}
+
+#' Synchronize Local iShares Historical Data
+#'
+#' @param ticker ETF ticker.
+#' @param ishare_mega_data Optional iShares registry table.
+#' @param local_path Optional local storage path.
+#' @param cache_dir Optional XLS cache directory.
+#' @param source_utime Optional upstream update time.
+#'
+#' @return A sync result list.
+#' @export
+sync_local_ishare_data <- function(ticker, ishare_mega_data = NULL, local_path = NULL,
+                                   cache_dir = NULL, source_utime = NULL) {
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("ishare", create = TRUE)
+  }
+  if (is.null(cache_dir)) {
+    cache_dir <- file.path(local_path, "_cache")
+  }
+  dir.create(cache_dir, recursive = TRUE, showWarnings = FALSE)
+
+  if (is.null(source_utime)) {
+    source_utime <- get_source_utime_ishare(check_online = FALSE)
+  }
+
+  new_dt <- get_source_data_ishare(
+    ticker = ticker,
+    ishare_mega_data = ishare_mega_data,
+    cache_dir = cache_dir,
+    local_path = local_path
+  )
+  if (!"ticker" %in% names(new_dt)) {
+    new_dt[, ticker := ticker]
+  }
+
+  sync_local_data(
+    new_data = new_dt,
+    local_file_path = file.path(local_path, paste0(ticker, "_historical.rds")),
+    key_cols = "date",
+    order_cols = "date",
+    source_utime = source_utime
+  )
+}
 

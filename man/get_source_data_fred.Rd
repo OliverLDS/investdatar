@@ -4,12 +4,12 @@
 \alias{get_source_data_fred}
 \title{Get FRED Series Data}
 \usage{
-get_source_data_fred(series_id, config)
+get_source_data_fred(series_id, config = NULL)
 }
 \arguments{
 \item{series_id}{Character. FRED series ID (e.g., "DGS10").}
 
-\item{config}{List with fields: api_key, url, mode.}
+\item{config}{Optional list with fields: \code{api_key}, \code{url}, \code{mode}.}
 }
 \value{
 data.table with columns: date (Date), value (numeric, NA for ".").

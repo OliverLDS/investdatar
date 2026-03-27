@@ -3,13 +3,17 @@
 #' Retrieves daily historical stock data (open, high, low, close, volume) for a given symbol
 #' using the AlphaVantage API. You can specify whether to retrieve only recent data
 #' (\code{"compact"}) or the full history (\code{"full"}).
+#' The returned object follows the package's standardized market OHLCV schema.
 #'
 #' @param symbol A character string for the stock ticker symbol (e.g., \code{"AAPL"}, \code{"TSLA"}).
 #' @param mode Character string; either \code{"compact"} (latest 100 days) or \code{"full"} (full history). Defaults to \code{"compact"}.
 #' @param config A list of AlphaVantage API settings, typically retrieved via \code{tool_set_config("alphavantage")}.
 #'
-#' @return A data frame with the following columns:
+#' @return A `data.table` with standardized columns including `source`,
+#'   `symbol`, `interval`, `datetime`, `date`, `open`, `high`, `low`, `close`,
+#'   and `volume`.
 #' \describe{
+#'   \item{\code{datetime}}{Midnight timestamp derived from the trading date.}
 #'   \item{\code{date}}{Date of the observation.}
 #'   \item{\code{open}}{Opening price.}
 #'   \item{\code{high}}{Highest price of the day.}
@@ -20,13 +24,14 @@
 #'
 #' @examples
 #' \dontrun{
-#' config <- tool_set_config("alphavantage")
-#' df <- fetch_ts_daily_alphavantage("MSFT", mode = "compact", config = config)
+#' config <- list(api_key = Sys.getenv("ALPHAVANTAGE_API_KEY"))
+#' df <- get_source_data_alphavantage_ts_daily("MSFT", mode = "compact", config = config)
 #' head(df)
 #' }
 #'
 #' @export
-get_source_data_alphavantage_ts_daily <- function(symbol, mode = c('compact', 'full'), config = tool_set_config('alphavantage')) {
+get_source_data_alphavantage_ts_daily <- function(symbol, mode = c('compact', 'full'), config = NULL) {
+  config <- .get_api_config("alphavantage", config = config)
 
   api_key <- config$api_key
   base_url <- config$url
@@ -60,12 +65,15 @@ get_source_data_alphavantage_ts_daily <- function(symbol, mode = c('compact', 'f
   ts_df$close <- as.numeric(ts_df$close)
   ts_df$volume <- as.numeric(ts_df$volume)
   ts_df$date <- as.Date(ts_df$date)
+  ts_df$symbol <- symbol
   
-  # Optional: sort by date descending
-  ts_df <- ts_df[order(ts_df$date, decreasing = TRUE), ]
-  
-  return(ts_df)
+  ts_dt <- data.table::as.data.table(ts_df)
+  .standardize_market_ohlcv(
+    ts_dt,
+    source = "alphavantage",
+    symbol = symbol,
+    interval = "1d",
+    time_col = "date"
+  )
 }
-
-
 

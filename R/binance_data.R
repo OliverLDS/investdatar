@@ -1,101 +1,105 @@
-#' Fetch Kline (Candlestick) Data from Binance Futures API
+#' Fetch Kline Data from Binance Futures API
 #'
-#' Retrieves historical candlestick data from Binance USDT-margined Futures.
-#' Supports custom time intervals and optional start/end time filtering.
+#' Retrieves candlestick data from Binance USDT-margined futures. If
+#' `paginate = TRUE`, the function keeps requesting pages until the requested
+#' time range is exhausted or the API returns fewer rows than `limit`.
 #'
-#' @param symbol Trading pair symbol (e.g., \code{"ETHUSDT"}).
-#' @param interval Candlestick interval (e.g., \code{"1m"}, \code{"5m"}, \code{"1h"}, \code{"1d"}).
-#' @param start_time Optional. Start time in \code{"YYYY-MM-DD HH:MM:SS"} format. Defaults to \code{NULL}.
-#' @param end_time Optional. End time in \code{"YYYY-MM-DD HH:MM:SS"} format. Defaults to \code{NULL}.
-#' @param limit Optional. Number of candles to return (default is 500 if unspecified).
-#' @param tz Timezone to apply to returned timestamps (default is \code{"Asia/Hong_Kong"}).
+#' @param symbol Trading pair symbol.
+#' @param interval Candlestick interval.
+#' @param start_time Optional start time.
+#' @param end_time Optional end time.
+#' @param limit Page size. Binance futures allows up to 1500.
+#' @param tz Time zone applied to returned timestamps.
+#' @param paginate Logical. Request multiple pages when needed.
 #'
-#' @return A data frame with columns:
-#' \describe{
-#'   \item{\code{open_time}}{Time when the candle opened (POSIXct).}
-#'   \item{\code{open}}{Opening price.}
-#'   \item{\code{high}}{Highest price.}
-#'   \item{\code{low}}{Lowest price.}
-#'   \item{\code{close}}{Closing price.}
-#'   \item{\code{volume}}{Base asset volume.}
-#'   \item{\code{close_time}}{Time when the candle closed (POSIXct).}
-#'   \item{\code{quote_asset_volume}}{Quote asset volume.}
-#'   \item{\code{num_trades}}{Number of trades.}
-#'   \item{\code{taker_buy_base_vol}}{Taker buy base asset volume.}
-#'   \item{\code{taker_buy_quote_vol}}{Taker buy quote asset volume.}
-#'   \item{\code{ignore}}{Unused placeholder field.}
-#' }
-#'
-#' @details See the official Binance API documentation: \url{https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data}
-#'
-#' @examples
-#' \dontrun{
-#' df <- fetch_binance_klines(
-#'   symbol = "BTCUSDT",
-#'   interval = "5m",
-#'   start_time = "2023-01-01 00:00:00",
-#'   end_time = "2023-01-01 12:00:00"
-#' )
-#' head(df)
-#' }
-#'
+#' @return Standardized OHLCV `data.table` with `source`, `symbol`, `interval`,
+#'   `datetime`, `date`, `open`, `high`, `low`, `close`, and `volume`, plus
+#'   Binance-specific columns such as `close_time` and trade counts.
 #' @export
-get_source_data_binance_klines <- function(
-  symbol = "ETHUSDT",
-  interval = "1m",
-  start_time = NULL,
-  end_time = NULL,
-  limit = NULL,
-  tz = "Asia/Hong_Kong"
-) {
-  start_posix <- as.POSIXct(start_time, tz = tz)
-  end_posix   <- as.POSIXct(end_time, tz = tz)
-  start_ms <- as.numeric(start_posix) * 1000
-  end_ms   <- as.numeric(end_posix) * 1000
+get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
+                                           start_time = NULL, end_time = NULL,
+                                           limit = 1500L, tz = "UTC",
+                                           paginate = TRUE) {
+  limit <- as.integer(limit)
+  if (is.na(limit) || limit <= 0L) {
+    stop("limit must be a positive integer.")
+  }
 
-  res <- httr::GET(
-    "https://fapi.binance.com/fapi/v1/klines",
-    query = list(
+  start_ms <- if (is.null(start_time)) NULL else as.numeric(as.POSIXct(start_time, tz = tz)) * 1000
+  end_ms <- if (is.null(end_time)) NULL else as.numeric(as.POSIXct(end_time, tz = tz)) * 1000
+  interval_seconds <- .parse_frequency(interval)$seconds
+
+  fetch_page <- function(page_start_ms = NULL) {
+    query <- list(
       symbol = symbol,
       interval = interval,
-      startTime = start_ms,
+      startTime = page_start_ms,
       endTime = end_ms,
       limit = limit
     )
-  )
+    query <- query[!vapply(query, is.null, logical(1))]
 
-  data <- jsonlite::fromJSON(httr::content(res, "text", encoding = "UTF-8"))
-  
-  df <- as.data.frame(data, stringsAsFactors = FALSE)
+    res <- httr::GET("https://fapi.binance.com/fapi/v1/klines", query = query)
+    httr::stop_for_status(res)
+    jsonlite::fromJSON(httr::content(res, "text", encoding = "UTF-8"))
+  }
 
-  colnames(df) <- c(
-    "open_time", "open", "high", "low", "close", "volume",
-    "close_time", "quote_asset_volume", "num_trades",
-    "taker_buy_base_vol", "taker_buy_quote_vol", "ignore"
-  )
+  pages <- list()
+  next_start_ms <- start_ms
+  repeat {
+    page <- fetch_page(next_start_ms)
+    if (length(page) == 0L) {
+      break
+    }
 
-  df[] <- lapply(df, type.convert, as.is = TRUE)
-  df$open_time  <- as.POSIXct(df$open_time / 1000, origin = "1970-01-01", tz = tz)
-  df$close_time <- as.POSIXct(df$close_time / 1000, origin = "1970-01-01", tz = tz)
+    page_dt <- data.table::as.data.table(page)
+    if (nrow(page_dt) == 0L) {
+      break
+    }
 
-  return(df)
+    data.table::setnames(page_dt, c(
+      "open_time", "open", "high", "low", "close", "volume",
+      "close_time", "quote_asset_volume", "num_trades",
+      "taker_buy_base_vol", "taker_buy_quote_vol", "ignore"
+    ))
+
+    numeric_cols <- setdiff(names(page_dt), c("open_time", "close_time"))
+    page_dt[, (numeric_cols) := lapply(.SD, as.numeric), .SDcols = numeric_cols]
+    page_dt[, datetime := as.POSIXct(open_time / 1000, origin = "1970-01-01", tz = tz)]
+    page_dt[, close_time := as.POSIXct(close_time / 1000, origin = "1970-01-01", tz = tz)]
+    page_dt[, open_time := NULL]
+    page_dt <- .standardize_market_ohlcv(
+      page_dt,
+      source = "binance",
+      symbol = symbol,
+      interval = interval,
+      time_col = "datetime",
+      tz = tz
+    )
+
+    pages[[length(pages) + 1L]] <- page_dt
+
+    if (!paginate || nrow(page_dt) < limit || is.null(end_ms)) {
+      if (!paginate || nrow(page_dt) < limit) {
+        break
+      }
+    }
+
+    next_start_ms <- as.numeric(max(page_dt$datetime)) * 1000 + interval_seconds * 1000
+    if (!is.null(end_ms) && next_start_ms > end_ms) {
+      break
+    }
+    if (!paginate) {
+      break
+    }
+  }
+
+  out <- data.table::rbindlist(pages, use.names = TRUE, fill = TRUE)
+  if (nrow(out) == 0L) {
+    return(out)
+  }
+
+  data.table::setorderv(out, "datetime")
+  out <- unique(out, by = c("symbol", "interval", "datetime"))
+  out[]
 }
-
-# document url: https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data
-
-# agent <- NewsReaderAgent$new()
-# df <- agent$fetch_binance_klines(symbol = "ETHUSDT", interval = "15m")
-# View(df)
-
-# df <- fetch_binance_klines(
-#   symbol = "ETHUSDT",
-#   interval = "1m",
-#   start_time = "2025-07-05 08:00:00",
-#   end_time = "2025-07-05 09:00:00",
-#   limit = 1000,
-#   tz = "Asia/Hong_Kong"
-# )
-# 
-# tail(df$open_time)
-# attr(df$open_time, "tzone")
-# View(df)

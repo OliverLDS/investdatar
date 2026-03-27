@@ -6,7 +6,7 @@
 \usage{
 get_source_utime_fred(
   series_id,
-  config,
+  config = NULL,
   from_server = FALSE,
   tz = "America/Chicago"
 )
@@ -14,7 +14,12 @@ get_source_utime_fred(
 \arguments{
 \item{series_id}{Character. FRED series ID.}
 
-\item{config}{List with fields: api_key, url, mode.}
+\item{config}{Optional list with fields: \code{api_key}, \code{url}, \code{mode}.}
+
+\item{from_server}{Logical. If \code{TRUE}, query the FRED series endpoint for
+the reported update time. Otherwise infer it from the registry frequency.}
+
+\item{tz}{Time zone used when parsing or inferring the update time.}
 }
 \value{
 POSIXct (UTC).

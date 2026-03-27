@@ -1,22 +1,37 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.0.2
+Version: 0.1.0
 Authors@R: 
-    person("Oliver", "Lee", email = "olee7149@gmail.com", role = c("aut", "cre"))
+    person("Oliver", "Zhou", email = "olee7149@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
-    structured investment-related data. Includes functions for retrieving 
-    macroeconomic series from FRED, detecting gaps in market candle data, 
-    and syncing datasets between local machines and cloud VMs. Provides 
-    utilities for working with crypto exchange data (e.g., OKX) and preparing 
-    time-aligned datasets for analysis and trading.
-License: MIT
+    structured investment-related data. Includes functions for retrieving
+    macroeconomic series from FRED and the World Bank, standardizing market
+    OHLCV data from multiple providers, detecting time-series gaps, and
+    synchronizing local '.rds' data stores with sidecar metadata for analysis
+    and trading workflows. It also generates structured dataset descriptions
+    for LLM-based analyst agents that produce R code for analysis and
+    visualization.
+License: MIT + file LICENSE
+URL: https://github.com/OliverLDS/investdatar
+BugReports: https://github.com/OliverLDS/investdatar/issues
 Encoding: UTF-8
-LazyData: true
 Depends: 
-    R (>= 3.5.0)
+    R (>= 4.1.0)
 Imports:
     data.table,
     jsonlite,
-    curl
+    curl,
+    httr,
+    xml2,
+    yaml
+Suggests:
+    okxr,
+    quantmod,
+    testthat (>= 3.0.0),
+    waldo,
+    wbstats,
+    withr,
+    zoo
+Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3

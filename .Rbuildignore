@@ -1,0 +1,13 @@
+^\.DS_Store$
+^\.git$
+^\.github$
+^\.gitignore$
+^\.Rhistory$
+^\.Rproj\.user$
+^\.Rcheck$
+^\.\.Rcheck$
+^investdatar\.Rcheck$
+^R/\.DS_Store$
+^R/\.Rhistory$
+^investdatar_.*\.tar\.gz$
+^reference_codes$

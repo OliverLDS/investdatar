@@ -4,7 +4,7 @@
 \alias{get_source_metadata_fred}
 \title{Retrieve metadata for a FRED series}
 \usage{
-get_source_metadata_fred(series_id, config)
+get_source_metadata_fred(series_id, config = NULL)
 }
 \arguments{
 \item{series_id}{A character string. The FRED series ID (e.g., "AMERIBOR").}

@@ -7,7 +7,7 @@
 get_source_data_alphavantage_ts_daily(
   symbol,
   mode = c("compact", "full"),
-  config = tool_set_config("alphavantage")
+  config = NULL
 )
 }
 \arguments{
@@ -18,8 +18,11 @@ get_source_data_alphavantage_ts_daily(
 \item{config}{A list of AlphaVantage API settings, typically retrieved via \code{tool_set_config("alphavantage")}.}
 }
 \value{
-A data frame with the following columns:
+A \code{data.table} with standardized columns including \code{source},
+\code{symbol}, \code{interval}, \code{datetime}, \code{date}, \code{open}, \code{high}, \code{low}, \code{close},
+and \code{volume}.
 \describe{
+\item{\code{datetime}}{Midnight timestamp derived from the trading date.}
 \item{\code{date}}{Date of the observation.}
 \item{\code{open}}{Opening price.}
 \item{\code{high}}{Highest price of the day.}
@@ -32,11 +35,12 @@ A data frame with the following columns:
 Retrieves daily historical stock data (open, high, low, close, volume) for a given symbol
 using the AlphaVantage API. You can specify whether to retrieve only recent data
 (\code{"compact"}) or the full history (\code{"full"}).
+The returned object follows the package's standardized market OHLCV schema.
 }
 \examples{
 \dontrun{
-config <- tool_set_config("alphavantage")
-df <- fetch_ts_daily_alphavantage("MSFT", mode = "compact", config = config)
+config <- list(api_key = Sys.getenv("ALPHAVANTAGE_API_KEY"))
+df <- get_source_data_alphavantage_ts_daily("MSFT", mode = "compact", config = config)
 head(df)
 }
 

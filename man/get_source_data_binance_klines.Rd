@@ -2,63 +2,40 @@
 % Please edit documentation in R/binance_data.R
 \name{get_source_data_binance_klines}
 \alias{get_source_data_binance_klines}
-\title{Fetch Kline (Candlestick) Data from Binance Futures API}
+\title{Fetch Kline Data from Binance Futures API}
 \usage{
 get_source_data_binance_klines(
   symbol = "ETHUSDT",
   interval = "1m",
   start_time = NULL,
   end_time = NULL,
-  limit = NULL,
-  tz = "Asia/Hong_Kong"
+  limit = 1500L,
+  tz = "UTC",
+  paginate = TRUE
 )
 }
 \arguments{
-\item{symbol}{Trading pair symbol (e.g., \code{"ETHUSDT"}).}
+\item{symbol}{Trading pair symbol.}
 
-\item{interval}{Candlestick interval (e.g., \code{"1m"}, \code{"5m"}, \code{"1h"}, \code{"1d"}).}
+\item{interval}{Candlestick interval.}
 
-\item{start_time}{Optional. Start time in \code{"YYYY-MM-DD HH:MM:SS"} format. Defaults to \code{NULL}.}
+\item{start_time}{Optional start time.}
 
-\item{end_time}{Optional. End time in \code{"YYYY-MM-DD HH:MM:SS"} format. Defaults to \code{NULL}.}
+\item{end_time}{Optional end time.}
 
-\item{limit}{Optional. Number of candles to return (default is 500 if unspecified).}
+\item{limit}{Page size. Binance futures allows up to 1500.}
 
-\item{tz}{Timezone to apply to returned timestamps (default is \code{"Asia/Hong_Kong"}).}
+\item{tz}{Time zone applied to returned timestamps.}
+
+\item{paginate}{Logical. Request multiple pages when needed.}
 }
 \value{
-A data frame with columns:
-\describe{
-\item{\code{open_time}}{Time when the candle opened (POSIXct).}
-\item{\code{open}}{Opening price.}
-\item{\code{high}}{Highest price.}
-\item{\code{low}}{Lowest price.}
-\item{\code{close}}{Closing price.}
-\item{\code{volume}}{Base asset volume.}
-\item{\code{close_time}}{Time when the candle closed (POSIXct).}
-\item{\code{quote_asset_volume}}{Quote asset volume.}
-\item{\code{num_trades}}{Number of trades.}
-\item{\code{taker_buy_base_vol}}{Taker buy base asset volume.}
-\item{\code{taker_buy_quote_vol}}{Taker buy quote asset volume.}
-\item{\code{ignore}}{Unused placeholder field.}
-}
+Standardized OHLCV \code{data.table} with \code{source}, \code{symbol}, \code{interval},
+\code{datetime}, \code{date}, \code{open}, \code{high}, \code{low}, \code{close}, and \code{volume}, plus
+Binance-specific columns such as \code{close_time} and trade counts.
 }
 \description{
-Retrieves historical candlestick data from Binance USDT-margined Futures.
-Supports custom time intervals and optional start/end time filtering.
-}
-\details{
-See the official Binance API documentation: \url{https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data}
-}
-\examples{
-\dontrun{
-df <- fetch_binance_klines(
-  symbol = "BTCUSDT",
-  interval = "5m",
-  start_time = "2023-01-01 00:00:00",
-  end_time = "2023-01-01 12:00:00"
-)
-head(df)
-}
-
+Retrieves candlestick data from Binance USDT-margined futures. If
+\code{paginate = TRUE}, the function keeps requesting pages until the requested
+time range is exhausted or the API returns fewer rows than \code{limit}.
 }

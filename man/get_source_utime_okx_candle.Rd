@@ -4,15 +4,15 @@
 \alias{get_source_utime_okx_candle}
 \title{Get Last Completed Candle Time}
 \usage{
-get_source_utime_okx_candle(bar, tz)
+get_source_utime_okx_candle(bar, tz = "UTC")
 }
 \arguments{
-\item{bar}{Character. OKX timeframe tag (e.g., "1m", "15m", "4h", "1d").}
+\item{bar}{Character. OKX timeframe tag (e.g., \code{"1m"}, \code{"15m"}, \code{"4H"}, \code{"1D"}).}
 
-\item{tz}{Character. IANA timezone (e.g., "UTC").}
+\item{tz}{Character. IANA timezone.}
 }
 \value{
-POSIXct in the given timezone.
+POSIXct.
 }
 \description{
 Floor current time to the last completed candle start for the given bar.
