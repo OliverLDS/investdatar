@@ -103,3 +103,60 @@ get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
   out <- unique(out, by = c("symbol", "interval", "datetime"))
   out[]
 }
+
+.binance_local_filename <- function(symbol, interval) {
+  symbol <- gsub("[^A-Za-z0-9._-]+", "_", symbol)
+  interval <- gsub("[^A-Za-z0-9._-]+", "_", interval)
+  sprintf("%s__%s.rds", symbol, interval)
+}
+
+#' Get Local Binance Kline Data
+#'
+#' @param symbol Trading pair symbol.
+#' @param interval Candlestick interval.
+#' @param local_path Optional Binance storage path.
+#'
+#' @return `data.table` or `NULL`.
+#' @export
+get_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m", local_path = NULL) {
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("crypto", subdir = "binance")
+  }
+  .read_local_data_table(file.path(local_path, .binance_local_filename(symbol, interval)), sort_cols = "datetime")
+}
+
+#' Synchronize Local Binance Kline Data
+#'
+#' @inheritParams get_source_data_binance_klines
+#' @param local_path Optional Binance storage path.
+#'
+#' @return A sync result list.
+#' @export
+sync_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
+                                      start_time = NULL, end_time = NULL,
+                                      limit = 1500L, tz = "UTC",
+                                      paginate = TRUE, local_path = NULL) {
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("crypto", subdir = "binance", create = TRUE)
+  }
+
+  local_file_path <- file.path(local_path, .binance_local_filename(symbol, interval))
+  new_dt <- get_source_data_binance_klines(
+    symbol = symbol,
+    interval = interval,
+    start_time = start_time,
+    end_time = end_time,
+    limit = limit,
+    tz = tz,
+    paginate = paginate
+  )
+  source_utime <- infer_source_utime_from_frequency(interval, reference_time = Sys.time(), tz = tz)
+
+  sync_local_data(
+    new_data = new_dt,
+    local_file_path = local_file_path,
+    key_cols = c("symbol", "interval", "datetime"),
+    order_cols = "datetime",
+    source_utime = source_utime
+  )
+}

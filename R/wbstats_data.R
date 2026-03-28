@@ -116,20 +116,40 @@ get_source_data_wbstats <- function(indicator, country = "countries_only",
                                     freq = "Y", gapfill = FALSE,
                                     date_as_class_date = FALSE, lang = NULL) {
   .require_suggested_package("wbstats", "to retrieve World Bank data.")
-  dt <- wbstats::wb_data(
+  wb_args <- list(
     indicator = indicator,
     country = country,
-    start_date = start_date,
-    end_date = end_date,
-    return_wide = FALSE,
-    mrv = mrv,
-    mrnev = mrnev,
-    cache = cache,
-    freq = freq,
-    gapfill = gapfill,
-    date_as_class_date = date_as_class_date,
-    lang = lang
+    return_wide = FALSE
   )
+  if (!is.null(start_date)) {
+    wb_args$start_date <- start_date
+  }
+  if (!is.null(end_date)) {
+    wb_args$end_date <- end_date
+  }
+  if (!is.null(mrv)) {
+    wb_args$mrv <- mrv
+  }
+  if (!is.null(mrnev)) {
+    wb_args$mrnev <- mrnev
+  }
+  if (!is.null(cache)) {
+    wb_args$cache <- cache
+  }
+  if (!missing(freq)) {
+    wb_args$freq <- freq
+  }
+  if (isTRUE(gapfill)) {
+    wb_args$gapfill <- TRUE
+  }
+  if (isTRUE(date_as_class_date)) {
+    wb_args$date_as_class_date <- TRUE
+  }
+  if (!is.null(lang)) {
+    wb_args$lang <- lang
+  }
+
+  dt <- do.call(wbstats::wb_data, wb_args)
 
   .normalize_wbstats_data(dt, indicator = indicator, country = country, freq = freq)
 }

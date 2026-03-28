@@ -60,9 +60,14 @@ WorldBank:
 
 Crypto:
   data_path: /absolute/path/to/crypto_data
+  # OKX local files are stored under /absolute/path/to/crypto_data/okx
+  # Binance local files should be stored under /absolute/path/to/crypto_data/binance
 
 iShare:
   data_path: /absolute/path/to/ishare_data
+
+YahooFinance:
+  data_path: /absolute/path/to/yahoo_finance_data
 ```
 
 ## Basic usage
@@ -74,14 +79,51 @@ cfg <- get_investdatar_config()
 
 fred_dt <- get_source_data_fred("DGS10")
 fred_sync <- sync_local_fred_data("DGS10")
+fred_local <- get_local_FRED_data("DGS10")
 
 wb_dt <- get_source_data_wbstats("NY.GDP.MKTP.CD", country = "US")
 wb_sync <- sync_local_wbstats_data("NY.GDP.MKTP.CD", "US")
+wb_local <- get_local_wbstats_data("NY.GDP.MKTP.CD", "US")
+
+ishare_local <- get_local_ishare_data("IVV")
+
+okx_local <- get_local_okx_candle("BTC-USDT-SWAP", "4H")
+
+yahoo_dt <- fetch_quantmod_OHLC("SPY", from = "2024-01-01", to = "2024-12-31")
 
 specs <- list_source_specs()
 
 prompt_txt <- describe_fred_data("DGS10")
 ```
+
+For spec-driven local access, the current local-reader functions map to source
+specs as follows:
+
+- `fred` -> `get_local_FRED_data()`
+- `wbstats` -> `get_local_wbstats_data()`
+- `ishare` -> `get_local_ishare_data()`
+- `okx` -> `get_local_okx_candle()`
+- `binance` -> `get_local_binance_klines()`
+- `quantmod` with `src = "yahoo"` -> `get_local_quantmod_OHLC()`
+
+Local path conventions for other market-data specs:
+
+- `binance` should use a `binance/` subdirectory under the configured
+  `Crypto.data_path`, mirroring the `okx/` layout
+- `quantmod` with `src = "yahoo"` should use the configured
+  `YahooFinance.data_path`
+
+Current local sync helpers include:
+
+- `sync_local_fred_data()`
+- `sync_local_wbstats_data()`
+- `sync_local_ishare_data()`
+- `sync_local_okx_candle()`
+- `sync_local_binance_klines()`
+- `sync_local_quantmod_OHLC()`
+
+`alphavantage` currently provides fetch/standardization helpers but does not yet
+expose a package-level local reader/sync helper in the same pattern.
 
 ## Notes
 

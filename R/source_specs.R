@@ -70,13 +70,13 @@ get_source_spec <- function(source) {
       local_path_source = "YahooFinance",
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
-      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = FALSE),
-      functions = list(fetch = "fetch_quantmod_OHLC")
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
+      functions = list(fetch = "fetch_quantmod_OHLC", sync = "sync_local_quantmod_OHLC", read_local = "get_local_quantmod_OHLC")
     ),
     okx = .new_source_spec(
       source_id = "okx",
       config_key = "Crypto",
-      local_path_source = "Crypto",
+      local_path_source = "Crypto/okx",
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
       capabilities = list(source_utime = TRUE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = TRUE),
@@ -85,11 +85,11 @@ get_source_spec <- function(source) {
     binance = .new_source_spec(
       source_id = "binance",
       config_key = "Crypto",
-      local_path_source = "Crypto",
+      local_path_source = "Crypto/binance",
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
-      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = FALSE),
-      functions = list(fetch = "get_source_data_binance_klines")
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = TRUE),
+      functions = list(fetch = "get_source_data_binance_klines", sync = "sync_local_binance_klines", read_local = "get_local_binance_klines")
     )
   )
 
