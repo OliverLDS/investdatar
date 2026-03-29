@@ -164,6 +164,12 @@ get_fred_registry_file_path <- function(config_dir = NULL) {
     if (is.null(config_dir)) {
       config_dir <- getOption("investdatar.config_dir")
     }
+    if (is.null(config_dir) || !nzchar(config_dir)) {
+      stop(
+        "No FRED registry path is configured. Set FRED.registry_file in your ",
+        "config or load a config file rooted at the desired directory."
+      )
+    }
     return(file.path(config_dir, "fred_macro_series_registry.json"))
   }
 
@@ -177,8 +183,77 @@ get_fred_registry_file_path <- function(config_dir = NULL) {
 #' @return `data.table`.
 #' @export
 get_fred_registry <- function(registry_path = get_fred_registry_file_path()) {
-  registry <- jsonlite::fromJSON(registry_path, simplifyDataFrame = TRUE)
-  data.table::as.data.table(registry)
+  .read_json_registry(
+    registry_path,
+    empty_cols = c("series_id", "main_group", "title", "start", "end", "freq", "units", "season", "update_time")
+  )
+}
+
+#' Add Or Update One FRED Registry Entry
+#'
+#' @param series_id FRED series identifier.
+#' @param main_group Optional grouping label. If `NULL`, read one line from
+#'   stdin after showing existing `main_group` hints.
+#' @param registry_path Optional registry JSON path.
+#' @param config Optional FRED API config.
+#'
+#' @return The added or updated row as a `data.table`.
+#' @export
+add_fred_registry_series <- function(series_id, main_group = NULL,
+                                     registry_path = get_fred_registry_file_path(),
+                                     config = NULL) {
+  registry <- .read_json_registry(
+    registry_path,
+    empty_cols = c("series_id", "main_group", "title", "start", "end", "freq", "units", "season", "update_time")
+  )
+  template_names <- names(registry)
+  existing_groups <- sort(unique(stats::na.omit(registry$main_group)))
+
+  if (is.null(main_group) || !nzchar(main_group)) {
+    main_group <- .prompt_stdin_value(
+      sprintf("Enter main_group for FRED series '%s': ", series_id),
+      hints = existing_groups
+    )
+  }
+  if (!nzchar(main_group)) {
+    stop("main_group must be a non-empty string.")
+  }
+
+  if (!(main_group %in% existing_groups) && length(existing_groups) > 0L) {
+    confirmed <- .confirm_stdin(sprintf("main_group '%s' is new. Add it? [y/N]: ", main_group))
+    if (!isTRUE(confirmed)) {
+      stop("Aborted by user.")
+    }
+  }
+
+  metadata <- get_source_metadata_fred(series_id, config = config)
+  if (is.null(metadata$title) || !nzchar(metadata$title)) {
+    stop("Failed to retrieve FRED metadata for series_id: ", series_id)
+  }
+
+  new_row <- data.table::data.table(
+    series_id = series_id,
+    main_group = main_group,
+    title = metadata$title,
+    start = as.character(metadata$start),
+    end = as.character(metadata$end),
+    freq = metadata$freq,
+    units = metadata$units,
+    season = metadata$season,
+    update_time = format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  )
+  new_row <- .align_registry_schema(new_row, template_names)
+
+  if (nrow(registry) > 0L && any(registry$series_id == series_id)) {
+    series_id_value <- series_id
+    registry <- registry[series_id != series_id_value]
+  }
+  registry <- data.table::rbindlist(list(registry, new_row), use.names = TRUE, fill = TRUE)
+  data.table::setorderv(registry, "series_id")
+  .write_json_registry(registry, registry_path)
+
+  series_id_value <- series_id
+  registry[series_id == series_id_value]
 }
 
 #' Synchronize Local FRED Data
@@ -209,6 +284,56 @@ sync_local_fred_data <- function(series_id, config = NULL, local_path = NULL,
     order_cols = "date",
     source_utime = source_utime
   )
+}
+
+#' Synchronize All FRED Series In The Registry
+#'
+#' @param registry Optional FRED registry table.
+#' @param config Optional FRED API config.
+#' @param local_path Optional local storage path.
+#' @param from_server Logical. If `TRUE`, use FRED server-reported update time.
+#' @param tz Time zone used for source update time inference.
+#'
+#' @return Summary `data.table`.
+#' @export
+sync_all_fred_registry_data <- function(registry = get_fred_registry(), config = NULL,
+                                        local_path = NULL, from_server = FALSE,
+                                        tz = "America/Chicago") {
+  stopifnot("series_id" %in% names(registry))
+
+  summary_list <- lapply(registry$series_id, function(series_id) {
+    tryCatch(
+      {
+        res <- sync_local_fred_data(
+          series_id = series_id,
+          config = config,
+          local_path = local_path,
+          from_server = from_server,
+          tz = tz
+        )
+        data.table::data.table(
+          series_id = series_id,
+          status = "success",
+          updated = isTRUE(res$updated),
+          n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
+          n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
+          error = NA_character_
+        )
+      },
+      error = function(e) {
+        data.table::data.table(
+          series_id = series_id,
+          status = "error",
+          updated = FALSE,
+          n_rows = NA_integer_,
+          n_new_rows = NA_integer_,
+          error = conditionMessage(e)
+        )
+      }
+    )
+  })
+
+  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
 }
 
 #' Detect Gaps In Local FRED Data

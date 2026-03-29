@@ -112,6 +112,10 @@
   )
 }
 
+.config_example_hint <- function() {
+  "See inst/extdata/investdatar_config_example.yaml for a minimal example."
+}
+
 #' Load Package Configuration
 #'
 #' Loads the package YAML configuration and caches it in package options.
@@ -123,15 +127,23 @@
 #' @export
 load_investdatar_config <- function(config_path = Sys.getenv("INVESTDATAR_CONFIG", unset = "")) {
   if (!nzchar(config_path)) {
-    stop("No config path supplied and INVESTDATAR_CONFIG is not set.")
+    stop(
+      "No config path supplied and INVESTDATAR_CONFIG is not set. ",
+      .config_example_hint()
+    )
   }
 
   config_path <- .normalize_scalar_path(config_path)
   if (!file.exists(config_path)) {
-    stop("Config file does not exist: ", config_path)
+    stop(
+      "Config file does not exist: ", config_path, ". ",
+      .config_example_hint()
+    )
   }
 
-  cfg <- yaml::read_yaml(config_path)
+  yaml_lines <- readLines(config_path, warn = FALSE)
+  yaml_lines <- gsub("\t", "  ", yaml_lines, fixed = TRUE)
+  cfg <- yaml::yaml.load(paste(yaml_lines, collapse = "\n"))
   cfg <- .normalize_config_tree(cfg, config_dir = dirname(config_path))
 
   options(investdatar.config = cfg)
@@ -157,7 +169,10 @@ get_investdatar_config <- function(reload = FALSE, config_path = Sys.getenv("INV
 
   if (reload || is.null(cfg)) {
     if (!nzchar(config_path)) {
-      stop("Package configuration is not loaded. Set INVESTDATAR_CONFIG or call load_investdatar_config().")
+      stop(
+        "Package configuration is not loaded. Set INVESTDATAR_CONFIG or call ",
+        "load_investdatar_config(). ", .config_example_hint()
+      )
     }
     return(load_investdatar_config(config_path = config_path))
   }
@@ -198,7 +213,11 @@ get_source_data_path <- function(source, config = get_investdatar_config(), subd
   data_path <- source_cfg$data_path
 
   if (is.null(data_path) || !nzchar(data_path)) {
-    stop("No data_path configured for source: ", source)
+    stop(
+      "No data_path configured for source: ", source, ". ",
+      "Add a 'data_path' entry for this source in your config file. ",
+      .config_example_hint()
+    )
   }
 
   path <- .normalize_scalar_path(data_path)

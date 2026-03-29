@@ -1,3 +1,14 @@
+# investdatar 0.1.2
+
+- Public GitHub release metadata cleanup, including author contact and package
+  description updates.
+- Added a shipped example configuration file and expanded README onboarding for
+  first-time users.
+- Hardened fresh-install configuration and FRED registry handling so missing
+  files fail more predictably.
+- Added tests covering example configuration loading and missing-config or
+  missing-registry behavior.
+
 # investdatar 0.1.1
 
 - Fixed `get_source_data_wbstats()` so default calls no longer fail from
