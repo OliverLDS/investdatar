@@ -1,8 +1,8 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: 
-    person("Oliver", "Zhou", email = "olee7149@gmail.com", role = c("aut", "cre"))
+    person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
     structured investment-related data. Includes functions for retrieving
     macroeconomic series from FRED and the World Bank, standardizing market
@@ -10,7 +10,7 @@ Description: A toolkit for loading, transforming, and managing
     synchronizing local '.rds' data stores with sidecar metadata for analysis
     and trading workflows. It also generates structured dataset descriptions
     for LLM-based analyst agents that produce R code for analysis and
-    visualization.
+    visualization. The package is released publicly through GitHub.
 License: MIT + file LICENSE
 URL: https://github.com/OliverLDS/investdatar
 BugReports: https://github.com/OliverLDS/investdatar/issues
@@ -34,4 +34,4 @@ Suggests:
     zoo
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.3

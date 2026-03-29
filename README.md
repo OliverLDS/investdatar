@@ -29,14 +29,15 @@ Supported providers currently include:
 remotes::install_github("OliverLDS/investdatar")
 ```
 
-This package is currently released through GitHub, not CRAN.
+`investdatar` is currently released through GitHub, not CRAN.
 
 ## Configuration
 
 Users should define `INVESTDATAR_CONFIG` in their `.Renviron` file. It must
-point to a YAML file that they create and maintain themselves. Credentials such
-as `FRED_API_KEY` and `ALPHAVANTAGE_API_KEY` should also be stored in
-`.Renviron`.
+point to a YAML file. A minimal example is shipped with the package at
+`inst/extdata/investdatar_config_example.yaml`. Credentials such as
+`FRED_API_KEY` and `ALPHAVANTAGE_API_KEY` should also be stored in `.Renviron`
+when needed.
 
 ```sh
 INVESTDATAR_CONFIG=/absolute/path/to/investdatar_config.yaml
@@ -44,11 +45,10 @@ FRED_API_KEY=your_fred_key
 ALPHAVANTAGE_API_KEY=your_alphavantage_key
 ```
 
-The YAML file is intended for local storage paths and source-specific metadata
-such as registry file names, cache paths, and identifier lists. Some providers
-require API keys, while others such as Yahoo Finance do not.
+The YAML file is intended for local storage paths and source-specific metadata.
+Some providers require API keys, while others such as Yahoo Finance do not.
 
-Example:
+Minimal example:
 
 ```yaml
 FRED:
@@ -70,7 +70,20 @@ YahooFinance:
   data_path: /absolute/path/to/yahoo_finance_data
 ```
 
-## Basic usage
+Relative paths are also supported and are resolved relative to the config file
+location.
+
+## First Run
+
+Start from the shipped example, adjust the local paths, then point
+`INVESTDATAR_CONFIG` at your copy.
+
+```r
+example_cfg <- system.file("extdata", "investdatar_config_example.yaml", package = "investdatar")
+example_cfg
+```
+
+## Basic Usage
 
 ```r
 library(investdatar)
@@ -94,6 +107,18 @@ yahoo_dt <- fetch_quantmod_OHLC("SPY", from = "2024-01-01", to = "2024-12-31")
 specs <- list_source_specs()
 
 prompt_txt <- describe_fred_data("DGS10")
+```
+
+Minimal local-sync workflow:
+
+```r
+library(investdatar)
+
+cfg <- load_investdatar_config(Sys.getenv("INVESTDATAR_CONFIG"))
+
+fred_sync <- sync_local_fred_data("DGS10")
+fred_local <- get_local_FRED_data("DGS10")
+fred_meta <- get_local_data_meta(fred_sync$file_path)
 ```
 
 For spec-driven local access, the current local-reader functions map to source
@@ -129,8 +154,21 @@ expose a package-level local reader/sync helper in the same pattern.
 
 - Some provider functions require suggested packages such as `okxr`,
   `quantmod`, `wbstats`, or `zoo`.
+- `alphavantage` is currently fetch-only at the package level.
 - Local sync helpers write `.rds` data files and `.meta.rds` sidecar metadata.
 - Configuration is read from the YAML file referenced by
   `INVESTDATAR_CONFIG`.
 - Project URL: <https://github.com/OliverLDS/investdatar>
 - Issue tracker: <https://github.com/OliverLDS/investdatar/issues>
+
+## Local Verification
+
+This repository includes a local-library verification workflow so package tests
+do not depend on whatever happens to be installed in the global R library.
+
+```sh
+scripts/install-local-lib.sh
+scripts/verify-local.sh
+```
+
+By default, both scripts use `INVESTDATAR_LOCAL_LIB=/tmp/investdatar-r-lib`.

@@ -233,6 +233,77 @@
  
 }
 
+#' Get iShares Registry File Path
+#'
+#' @param config_dir Optional configuration directory used for fallback lookup.
+#'
+#' @return Character scalar path.
+#' @export
+get_ishare_registry_file_path <- function(config_dir = NULL) {
+  cfg <- tryCatch(get_source_config("ishare"), error = function(e) list())
+  registry_file <- cfg$registry_file
+
+  if (is.null(registry_file) || !nzchar(registry_file)) {
+    if (is.null(config_dir)) {
+      config_dir <- getOption("investdatar.config_dir")
+    }
+    if (is.null(config_dir) || !nzchar(config_dir)) {
+      stop(
+        "No iShares registry path is configured. Set iShare.registry_file in ",
+        "your config or load a config file rooted at the desired directory."
+      )
+    }
+    return(file.path(config_dir, "ishare_ticker_registry.json"))
+  }
+
+  .normalize_scalar_path(registry_file, config_dir = getOption("investdatar.config_dir"))
+}
+
+#' Get iShares Registry
+#'
+#' @param registry_path Optional registry JSON path.
+#'
+#' @return `data.table`.
+#' @export
+get_ishare_registry <- function(registry_path = get_ishare_registry_file_path()) {
+  .read_json_registry(registry_path, empty_cols = c("ticker", "type"))
+}
+
+#' Add Or Update One iShares Registry Entry
+#'
+#' @param ticker ETF ticker.
+#' @param type Optional ticker type. If `NULL`, read from stdin.
+#' @param registry_path Optional registry JSON path.
+#'
+#' @return The added or updated row as a `data.table`.
+#' @export
+add_ishare_registry_ticker <- function(ticker, type = NULL,
+                                       registry_path = get_ishare_registry_file_path()) {
+  registry <- get_ishare_registry(registry_path = registry_path)
+  template_names <- names(registry)
+
+  if (is.null(type) || !nzchar(type)) {
+    type <- .prompt_stdin_value(sprintf("Enter type for iShare ticker '%s': ", ticker))
+  }
+  if (!nzchar(type)) {
+    stop("type must be a non-empty string.")
+  }
+
+  new_row <- data.table::data.table(ticker = ticker, type = type)
+  new_row <- .align_registry_schema(new_row, template_names)
+
+  if (nrow(registry) > 0L && any(registry$ticker == ticker)) {
+    ticker_value <- ticker
+    registry <- registry[ticker != ticker_value]
+  }
+  registry <- data.table::rbindlist(list(registry, new_row), use.names = TRUE, fill = TRUE)
+  data.table::setorderv(registry, "ticker")
+  .write_json_registry(registry, registry_path)
+
+  ticker_value <- ticker
+  registry[ticker == ticker_value]
+}
+
 #' Get iShares Historical Data
 #'
 #' Downloads and parses the historical sheet for a single iShares fund using
@@ -366,3 +437,72 @@ sync_local_ishare_data <- function(ticker, ishare_mega_data = NULL, local_path =
   )
 }
 
+#' Synchronize All iShares Tickers In The Registry
+#'
+#' @param registry Optional iShares registry table.
+#' @param local_path Optional local storage path.
+#' @param cache_dir Optional cache directory.
+#' @param source_utime Optional upstream update time shared across the batch.
+#' @param ishare_mega_data Optional metadata table used to resolve fund URLs.
+#'
+#' @return Summary `data.table`.
+#' @export
+sync_all_ishare_registry_data <- function(registry = get_ishare_registry(),
+                                          local_path = NULL,
+                                          cache_dir = NULL,
+                                          source_utime = NULL,
+                                          ishare_mega_data = NULL) {
+  stopifnot("ticker" %in% names(registry))
+
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("ishare", create = TRUE)
+  }
+  if (is.null(cache_dir)) {
+    cache_dir <- file.path(local_path, "_cache")
+  }
+  if (is.null(ishare_mega_data)) {
+    ishare_mega_data <- get_local_ishare_mega_data(local_path = local_path)
+  }
+  if (is.null(source_utime)) {
+    source_utime <- get_source_utime_ishare(check_online = FALSE)
+  }
+
+  summary_list <- lapply(seq_len(nrow(registry)), function(i) {
+    ticker <- registry$ticker[[i]]
+    type <- if ("type" %in% names(registry)) registry$type[[i]] else NA_character_
+
+    tryCatch(
+      {
+        res <- sync_local_ishare_data(
+          ticker = ticker,
+          ishare_mega_data = ishare_mega_data,
+          local_path = local_path,
+          cache_dir = cache_dir,
+          source_utime = source_utime
+        )
+        data.table::data.table(
+          ticker = ticker,
+          type = type,
+          status = "success",
+          updated = isTRUE(res$updated),
+          n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
+          n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
+          error = NA_character_
+        )
+      },
+      error = function(e) {
+        data.table::data.table(
+          ticker = ticker,
+          type = type,
+          status = "error",
+          updated = FALSE,
+          n_rows = NA_integer_,
+          n_new_rows = NA_integer_,
+          error = conditionMessage(e)
+        )
+      }
+    )
+  })
+
+  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+}

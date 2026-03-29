@@ -1,0 +1,19 @@
+FRED:
+  data_path: ./data/fred
+  registry_file: ./config/fred_macro_series_registry.json
+
+WorldBank:
+  data_path: ./data/world_bank
+
+Crypto:
+  data_path: ./data/crypto
+
+iShare:
+  data_path: ./data/ishare
+  registry_file: ./config/ishare_ticker_registry.json
+
+YahooFinance:
+  data_path: ./data/yahoo_finance
+
+AlphaVantage:
+  note: API key is read from ALPHAVANTAGE_API_KEY
