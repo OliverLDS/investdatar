@@ -53,7 +53,15 @@ get_source_spec <- function(source) {
       resource_type = "fund_history",
       schema = list(time_col = "date", key_cols = "date", value_cols = c("nav", "ex_div", "N_shares")),
       capabilities = list(source_utime = TRUE, inferred_utime = TRUE, pagination = FALSE, gap_detection = FALSE, sync = TRUE),
-      functions = list(fetch = "get_source_data_ishare", fetch_utime = "get_source_utime_ishare", sync = "sync_local_ishare_data", read_local = "get_local_ishare_data")
+      functions = list(
+        fetch = "get_source_data_ishare",
+        fetch_holdings = "get_source_data_ishare_holdings",
+        fetch_utime = "get_source_utime_ishare",
+        sync = "sync_local_ishare_data",
+        sync_holdings = "sync_local_ishare_holdings",
+        read_local = "get_local_ishare_data",
+        read_local_holdings = "get_local_ishare_holdings"
+      )
     ),
     alphavantage = .new_source_spec(
       source_id = "alphavantage",
@@ -71,7 +79,12 @@ get_source_spec <- function(source) {
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
       capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
-      functions = list(fetch = "fetch_quantmod_OHLC", sync = "sync_local_quantmod_OHLC", read_local = "get_local_quantmod_OHLC")
+      functions = list(
+        fetch = "fetch_quantmod_OHLC",
+        sync = "sync_local_quantmod_OHLC",
+        sync_registry = "sync_all_yahoofinance_registry_data",
+        read_local = "get_local_quantmod_OHLC"
+      )
     ),
     okx = .new_source_spec(
       source_id = "okx",

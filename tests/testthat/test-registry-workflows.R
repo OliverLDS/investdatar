@@ -89,3 +89,57 @@ test_that("iShare registry helpers add tickers and batch sync via mocked helpers
   expect_equal(summary_dt[ticker == "IVV", status][[1]], "success")
   expect_equal(summary_dt[ticker == "IAU", status][[1]], "error")
 })
+
+test_that("iShare holdings registry sync returns success and failure summary", {
+  registry <- data.table::data.table(
+    ticker = c("DYNF", "THRO", "IVV"),
+    type = c("active", "active", "equity_core")
+  )
+
+  summary_dt <- testthat::with_mocked_bindings(
+    get_source_config = function(source, config = get_investdatar_config()) {
+      if (tolower(source) == "ishare") {
+        return(list(holdings_tickers = c("DYNF", "THRO")))
+      }
+      list()
+    },
+    get_local_ishare_mega_data = function(local_path = NULL) data.table::data.table(Ticker = c("IVV", "IAU"), etf_href = c("u1", "u2")),
+    get_source_utime_ishare = function(tz = "America/New_York", check_online = TRUE) as.POSIXct("2026-03-29 00:00:00", tz = "UTC"),
+    sync_local_ishare_holdings = function(ticker, ishare_mega_data = NULL, local_path = NULL, cache_dir = NULL, source_utime = NULL) {
+      if (ticker == "THRO") stop("download failed")
+      list(updated = TRUE, n_rows = 25L, n_new_rows = 25L)
+    },
+    investdatar::sync_all_ishare_registry_holdings(registry = registry, local_path = withr::local_tempdir()),
+    .package = "investdatar"
+  )
+
+  expect_equal(nrow(summary_dt), 2L)
+  expect_equal(summary_dt$ticker, c("DYNF", "THRO"))
+  expect_equal(summary_dt[ticker == "DYNF", status][[1]], "success")
+  expect_equal(summary_dt[ticker == "THRO", status][[1]], "error")
+})
+
+test_that("Yahoo Finance registry sync returns success and failure summary", {
+  registry <- data.table::data.table(
+    yahoo_finance_ticker = c("^GSPC", "^VIX")
+  )
+
+  summary_dt <- testthat::with_mocked_bindings(
+    sync_local_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", local_path = NULL) {
+      expect_equal(label, ticker)
+      if (ticker == "^VIX") stop("download failed")
+      list(updated = TRUE, n_rows = 100L, n_new_rows = 3L)
+    },
+    investdatar::sync_all_yahoofinance_registry_data(
+      from = "2026-01-01",
+      to = "2026-03-31",
+      registry = registry,
+      local_path = withr::local_tempdir()
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(nrow(summary_dt), 2L)
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", status][[1]], "success")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^VIX", status][[1]], "error")
+})

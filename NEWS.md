@@ -1,3 +1,18 @@
+# investdatar 0.1.3
+
+- Added iShares holdings fetch, local read, single-ticker sync, and registry
+  batch sync helpers.
+- Added automatic migration of legacy iShares holdings snapshot-list files into
+  the new fixed-column long-table format.
+- Added Yahoo Finance registry helpers and batch sync through `quantmod`,
+  driven by `YahooFinance.registry_file`.
+- Improved `quantmod` sync error reporting so upstream Yahoo failures surface as
+  explicit errors instead of collapsing to `new_data_is_null`.
+- Updated `describe_quantmod_data()` so omitted `from` and `to` default to the
+  oldest and newest dates in local quantmod data.
+- Added `iShare.holdings_tickers` config support and restricted default
+  holdings batch sync to the configured subset.
+
 # investdatar 0.1.2
 
 - Public GitHub release metadata cleanup, including author contact and package

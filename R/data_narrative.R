@@ -226,13 +226,33 @@ describe_alphavantage_data <- function(symbol, mode = c("compact", "full"), conf
 #'
 #' @param ticker Market symbol passed to `quantmod::getSymbols()`.
 #' @param label Optional label to store in the standardized `symbol` column.
-#' @param from Start date.
-#' @param to End date.
+#' @param from Start date. If `NULL`, use the oldest date in local quantmod
+#'   data for `label`.
+#' @param to End date. If `NULL`, use the newest date in local quantmod data
+#'   for `label`.
 #' @param src quantmod source, default `"yahoo"`.
+#' @param local_path Optional local storage path used when `from` or `to` is
+#'   omitted.
 #'
 #' @return Character scalar narrative.
 #' @export
-describe_quantmod_data <- function(ticker, label = ticker, from, to, src = "yahoo") {
+describe_quantmod_data <- function(ticker, label = ticker, from = NULL, to = NULL, src = "yahoo", local_path = NULL) {
+  if (is.null(from) || is.null(to)) {
+    local_dt <- get_local_quantmod_OHLC(label = label, src = src, local_path = local_path)
+    if (is.null(local_dt) || nrow(local_dt) == 0L) {
+      stop(
+        "Local quantmod data not found for label: ", label,
+        ". Supply both from and to, or sync/read local data first."
+      )
+    }
+    if (is.null(from)) {
+      from <- min(local_dt$date, na.rm = TRUE)
+    }
+    if (is.null(to)) {
+      to <- max(local_dt$date, na.rm = TRUE)
+    }
+  }
+
   dt <- fetch_quantmod_OHLC(ticker = ticker, label = label, from = from, to = to, src = src, raw_data = FALSE)
   .describe_market_ohlcv_core(dt, source_label = paste0("quantmod_", src))
 }

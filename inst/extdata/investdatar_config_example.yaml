@@ -11,9 +11,11 @@ Crypto:
 iShare:
   data_path: ./data/ishare
   registry_file: ./config/ishare_ticker_registry.json
+  holdings_tickers: [DYNF, THRO, BAI, BDYN, BDVL]
 
 YahooFinance:
   data_path: ./data/yahoo_finance
+  registry_file: ./config/YahooFinance_ticker_registry.json
 
 AlphaVantage:
   note: API key is read from ALPHAVANTAGE_API_KEY

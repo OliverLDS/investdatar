@@ -1,6 +1,6 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.1.2
+Version: 0.1.3
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
@@ -34,4 +34,4 @@ Suggests:
     zoo
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+RoxygenNote: 7.2.3

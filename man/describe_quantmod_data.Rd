@@ -4,18 +4,30 @@
 \alias{describe_quantmod_data}
 \title{Describe quantmod Data}
 \usage{
-describe_quantmod_data(ticker, label = ticker, from, to, src = "yahoo")
+describe_quantmod_data(
+  ticker,
+  label = ticker,
+  from = NULL,
+  to = NULL,
+  src = "yahoo",
+  local_path = NULL
+)
 }
 \arguments{
 \item{ticker}{Market symbol passed to \code{quantmod::getSymbols()}.}
 
 \item{label}{Optional label to store in the standardized \code{symbol} column.}
 
-\item{from}{Start date.}
+\item{from}{Start date. If \code{NULL}, use the oldest date in local quantmod
+data for \code{label}.}
 
-\item{to}{End date.}
+\item{to}{End date. If \code{NULL}, use the newest date in local quantmod data
+for \code{label}.}
 
 \item{src}{quantmod source, default \code{"yahoo"}.}
+
+\item{local_path}{Optional local storage path used when \code{from} or \code{to} is
+omitted.}
 }
 \value{
 Character scalar narrative.

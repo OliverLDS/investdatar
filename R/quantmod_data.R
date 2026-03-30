@@ -18,10 +18,14 @@ fetch_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "yahoo",
   .require_suggested_package("zoo", "to fetch OHLC data.")
   x <- tryCatch(
     quantmod::getSymbols(ticker, src = src, auto.assign = FALSE, from = from, to = to),
-    error = function(e) NULL
+    error = function(e) {
+      stop(
+        sprintf("quantmod failed to fetch '%s' from source '%s': %s", ticker, src, conditionMessage(e)),
+        call. = FALSE
+      )
+    }
   )
   if (raw_data) return(x)
-  if (is.null(x)) return(NULL)
   
   cn <- colnames(x)
   open_col <- grep("\\.Open$", cn, value = TRUE)
@@ -73,6 +77,50 @@ fetch_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "yahoo",
   stop("A local_path must be supplied for quantmod sources other than 'yahoo'.")
 }
 
+#' Get Yahoo Finance Registry File Path
+#'
+#' Resolve the JSON registry path for Yahoo Finance ticker metadata. If no
+#' explicit `registry_file` is configured, the function falls back to a default
+#' filename in the package config directory.
+#'
+#' @param config_dir Optional configuration directory used for the fallback
+#'   registry path.
+#'
+#' @return Character scalar path.
+#' @export
+get_yahoofinance_registry_file_path <- function(config_dir = NULL) {
+  cfg <- tryCatch(get_source_config("yahoofinance"), error = function(e) list())
+  registry_file <- cfg$registry_file
+
+  if (is.null(registry_file) || !nzchar(registry_file)) {
+    if (is.null(config_dir)) {
+      config_dir <- getOption("investdatar.config_dir")
+    }
+    if (is.null(config_dir) || !nzchar(config_dir)) {
+      stop(
+        "No YahooFinance registry path is configured. Set YahooFinance.registry_file in your ",
+        "config or load a config file rooted at the desired directory."
+      )
+    }
+    return(file.path(config_dir, "YahooFinance_ticker_registry.json"))
+  }
+
+  .normalize_scalar_path(registry_file, config_dir = getOption("investdatar.config_dir"))
+}
+
+#' Get Yahoo Finance Registry
+#'
+#' @param registry_path Optional registry JSON path.
+#'
+#' @return `data.table`.
+#' @export
+get_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path()) {
+  .read_json_registry(
+    registry_path,
+    empty_cols = c("yahoo_finance_ticker", "definition", "main_asset_type", "second_asset_type", "geography")
+  )
+}
+
 #' Get Local quantmod OHLC Data
 #'
 #' @param label Local symbol label used in the stored data.
@@ -117,4 +165,63 @@ sync_local_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "ya
     order_cols = "datetime",
     source_utime = source_utime
   )
+}
+
+#' Synchronize All Yahoo Finance Tickers In The Registry
+#'
+#' @param from Start date passed to `quantmod::getSymbols()`.
+#' @param to End date passed to `quantmod::getSymbols()`.
+#' @param registry Optional Yahoo Finance registry table.
+#' @param local_path Optional local storage path.
+#' @param src quantmod source, default `"yahoo"`.
+#'
+#' @return Summary `data.table`.
+#' @export
+sync_all_yahoofinance_registry_data <- function(from,
+                                                to,
+                                                registry = get_yahoofinance_registry(),
+                                                local_path = NULL,
+                                                src = "yahoo") {
+  stopifnot("yahoo_finance_ticker" %in% names(registry))
+
+  if (is.null(local_path)) {
+    local_path <- .quantmod_default_local_path(src = src, create = TRUE)
+  }
+
+  summary_list <- lapply(seq_len(nrow(registry)), function(i) {
+    ticker <- registry$yahoo_finance_ticker[[i]]
+
+    tryCatch(
+      {
+        res <- sync_local_quantmod_OHLC(
+          ticker = ticker,
+          label = ticker,
+          from = from,
+          to = to,
+          src = src,
+          local_path = local_path
+        )
+        data.table::data.table(
+          yahoo_finance_ticker = ticker,
+          status = "success",
+          updated = isTRUE(res$updated),
+          n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
+          n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
+          error = NA_character_
+        )
+      },
+      error = function(e) {
+        data.table::data.table(
+          yahoo_finance_ticker = ticker,
+          status = "error",
+          updated = FALSE,
+          n_rows = NA_integer_,
+          n_new_rows = NA_integer_,
+          error = conditionMessage(e)
+        )
+      }
+    )
+  })
+
+  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
 }
