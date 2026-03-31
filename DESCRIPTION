@@ -1,6 +1,8 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
 Version: 0.1.3
+Author: Oliver Zhou
+Maintainer: Oliver Zhou <oliver.yxzhou@gmail.com>
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
