@@ -34,6 +34,8 @@ Suggests:
     wbstats,
     withr,
     zoo
+Remotes:
+    OliverLDS/okxr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
