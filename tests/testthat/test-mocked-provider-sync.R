@@ -211,6 +211,51 @@ test_that("sync_local_quantmod_OHLC uses the yahoo local layout", {
   expect_equal(local_dt$close, c(1.5, 2.5))
 })
 
+test_that("sync_local_quantmod_OHLC refreshes existing daily rows with revised values", {
+  local_dir <- withr::local_tempdir()
+
+  stale_dt <- data.table::data.table(
+    source = "quantmod_yahoo",
+    symbol = "HSI",
+    interval = "1d",
+    datetime = as.POSIXct(c("2026-03-30 00:00:00", "2026-03-31 00:00:00"), tz = "UTC"),
+    date = as.Date(c("2026-03-30", "2026-03-31")),
+    open = c(1, 2),
+    high = c(2, 3),
+    low = c(0.5, 1.5),
+    close = c(NA_real_, 2.5),
+    volume = c(10, 20)
+  )
+  saveRDS(stale_dt, file.path(local_dir, "HSI__yahoo__1d.rds"))
+
+  refreshed_dt <- data.table::data.table(
+    source = "quantmod_yahoo",
+    symbol = "HSI",
+    interval = "1d",
+    datetime = as.POSIXct(c("2026-03-30 00:00:00", "2026-03-31 00:00:00", "2026-04-01 00:00:00"), tz = "UTC"),
+    date = as.Date(c("2026-03-30", "2026-03-31", "2026-04-01")),
+    open = c(1, 2, 3),
+    high = c(2, 3, 4),
+    low = c(0.5, 1.5, 2.5),
+    close = c(2.1, 2.5, 3.5),
+    volume = c(10, 20, 30)
+  )
+
+  res <- testthat::with_mocked_bindings(
+    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE) refreshed_dt,
+    investdatar::sync_local_quantmod_OHLC("HSI", from = "2026-03-30", to = "2026-04-01", local_path = local_dir),
+    .package = "investdatar"
+  )
+
+  local_dt <- investdatar::get_local_quantmod_OHLC("HSI", local_path = local_dir)
+
+  expect_true(res$updated)
+  expect_equal(res$n_new_rows, 1L)
+  expect_equal(local_dt[date == as.Date("2026-03-30"), close][[1]], 2.1)
+  expect_equal(max(local_dt$date), as.Date("2026-04-01"))
+  expect_equal(nrow(local_dt), 3L)
+})
+
 test_that("sync_local_quantmod_OHLC surfaces upstream quantmod errors", {
   local_dir <- withr::local_tempdir()
 

@@ -21,6 +21,28 @@ test_that("sync_local_data deduplicates and writes sidecar metadata", {
   expect_equal(investdatar::get_local_data_meta(out_path)$n_rows, 3L)
 })
 
+test_that("sync_local_data refreshes existing keyed rows when source values change", {
+  out_path <- file.path(withr::local_tempdir(), "series.rds")
+
+  first <- data.table::data.table(
+    date = as.Date(c("2026-01-01", "2026-01-02")),
+    value = c(1, NA_real_)
+  )
+  second <- data.table::data.table(
+    date = as.Date(c("2026-01-02", "2026-01-03")),
+    value = c(2, 3)
+  )
+
+  investdatar::sync_local_data(first, out_path, key_cols = "date")
+  res2 <- investdatar::sync_local_data(second, out_path, key_cols = "date")
+  local_dt <- readRDS(out_path)
+
+  expect_true(res2$updated)
+  expect_equal(res2$n_new_rows, 1L)
+  expect_equal(local_dt[date == as.Date("2026-01-02"), value][[1]], 2)
+  expect_equal(nrow(local_dt), 3L)
+})
+
 test_that("detect_time_gaps works for fixed and calendar frequencies", {
   candle_dt <- data.table::data.table(
     datetime = as.POSIXct(c("2026-03-26 00:00:00", "2026-03-26 08:00:00"), tz = "UTC")

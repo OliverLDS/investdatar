@@ -101,6 +101,66 @@ get_local_data_utime <- function(local_file_path) {
   new_dt[!old_keys, on = key_cols]
 }
 
+.prepare_compare_rows <- function(dt, cols, order_cols) {
+  dt <- data.table::copy(.as_data_table(dt))
+  if (is.null(dt)) {
+    return(NULL)
+  }
+
+  missing_cols <- setdiff(cols, names(dt))
+  if (length(missing_cols) > 0L) {
+    for (nm in missing_cols) {
+      dt[, (nm) := NA]
+    }
+  }
+
+  data.table::setcolorder(dt, cols)
+  if (!is.null(order_cols) && all(order_cols %in% names(dt))) {
+    data.table::setorderv(dt, order_cols)
+  }
+  dt[]
+}
+
+.has_changed_rows <- function(old_dt, new_dt, key_cols, order_cols = key_cols) {
+  old_dt <- .as_data_table(old_dt)
+  new_dt <- .as_data_table(new_dt)
+
+  if (is.null(new_dt) || nrow(new_dt) == 0L) {
+    return(FALSE)
+  }
+  if (is.null(old_dt) || nrow(old_dt) == 0L) {
+    return(TRUE)
+  }
+
+  new_unique <- unique(new_dt, by = key_cols)
+  old_matching <- old_dt[new_unique[, key_cols, with = FALSE], on = key_cols, nomatch = 0L]
+  compare_cols <- union(names(old_matching), names(new_unique))
+
+  old_norm <- .prepare_compare_rows(old_matching, cols = compare_cols, order_cols = key_cols)
+  new_norm <- .prepare_compare_rows(new_unique, cols = compare_cols, order_cols = key_cols)
+
+  !identical(old_norm, new_norm)
+}
+
+.upsert_rows_by_key <- function(old_dt, new_dt, key_cols, order_cols = key_cols) {
+  new_dt <- .as_data_table(new_dt)
+  if (is.null(new_dt)) {
+    return(old_dt)
+  }
+
+  new_unique <- unique(new_dt, by = key_cols)
+  if (is.null(old_dt) || nrow(old_dt) == 0L) {
+    data.table::setorderv(new_unique, order_cols)
+    return(new_unique[])
+  }
+
+  old_dt <- .as_data_table(old_dt)
+  old_remaining <- old_dt[!new_unique[, key_cols, with = FALSE], on = key_cols]
+  merged_dt <- data.table::rbindlist(list(old_remaining, new_unique), use.names = TRUE, fill = TRUE)
+  data.table::setorderv(merged_dt, order_cols)
+  merged_dt[]
+}
+
 #' Synchronize Local Data
 #'
 #' Merges freshly retrieved source data into a local `.rds` file and stores a
@@ -122,14 +182,16 @@ sync_local_data <- function(new_data, local_file_path, key_cols, order_cols = ke
     return(list(updated = FALSE, reason = "new_data_is_null", data = NULL, file_path = local_file_path))
   }
   stopifnot(all(key_cols %in% names(new_dt)))
+  new_dt <- unique(new_dt, by = key_cols)
 
   old_dt <- .safe_read_rds(local_file_path, default = NULL)
   old_dt <- .as_data_table(old_dt)
 
   if (!is.null(old_dt) && nrow(old_dt) > 0L) {
     new_rows <- .find_new_rows(new_dt, key_cols = key_cols, old_dt = old_dt)
-    merged_dt <- .unique_bind_rows(old_dt, new_rows, key_cols = key_cols, order_cols = order_cols)
-    updated <- nrow(new_rows) > 0L
+    changed_existing <- .has_changed_rows(old_dt, new_dt, key_cols = key_cols, order_cols = order_cols)
+    merged_dt <- .upsert_rows_by_key(old_dt, new_dt, key_cols = key_cols, order_cols = order_cols)
+    updated <- nrow(new_rows) > 0L || changed_existing
     n_new_rows <- nrow(new_rows)
   } else {
     data.table::setorderv(new_dt, order_cols)

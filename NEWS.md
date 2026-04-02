@@ -1,3 +1,12 @@
+# investdatar 0.1.3.1
+
+- Fixed local sync behavior so source rows with existing keys are refreshed
+  when upstream providers revise already-known observations instead of only
+  appending unseen keys.
+- This resolves stale latest-row issues in Yahoo Finance via `quantmod` and
+  the same sync behavior for other providers that write through the shared
+  local sync helper.
+
 # investdatar 0.1.3
 
 - Added iShares holdings fetch, local read, single-ticker sync, and registry
