@@ -52,6 +52,11 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
   rawToChar(res$content)
 }
 
+.clean_rss_feed_text <- function(feed_text) {
+  feed_text <- sub("^\ufeff", "", feed_text)
+  sub("^[[:space:]]+", "", feed_text)
+}
+
 .extract_xml_text <- function(node, xpath, ns = xml2::xml_ns(node)) {
   out <- xml2::xml_text(xml2::xml_find_first(node, xpath, ns = ns), trim = TRUE)
   if (!length(out) || is.na(out)) {
@@ -135,7 +140,11 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 
 .parse_rss_items <- function(feed_text, feed_id, source = "rss", parser = c("plain", "gdpnow")) {
   parser <- match.arg(parser)
-  doc <- xml2::read_xml(feed_text)
+  feed_text <- .clean_rss_feed_text(feed_text)
+  doc <- tryCatch(
+    xml2::read_xml(feed_text),
+    error = function(e) xml2::read_html(feed_text)
+  )
   items <- xml2::xml_find_all(doc, ".//item")
 
   out <- data.table::rbindlist(
@@ -171,9 +180,16 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
     )
   }
 
-  if (all(is.na(out$guid) | !nzchar(out$guid))) {
-    out[, guid := link]
+  missing_guid <- is.na(out$guid) | !nzchar(out$guid)
+  if (any(missing_guid)) {
+    out[missing_guid, guid := link]
   }
+
+  missing_guid <- is.na(out$guid) | !nzchar(out$guid)
+  if (any(missing_guid)) {
+    out[missing_guid, guid := paste(feed_id, as.character(published_at), title, sep = "::")]
+  }
+
   out[, published_date := as.Date(published_at, tz = "UTC")]
 
   if (identical(parser, "gdpnow")) {
@@ -182,6 +198,29 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 
   data.table::setorderv(out, "published_at")
   out[]
+}
+
+.clean_local_rss_dt <- function(dt) {
+  dt <- .as_data_table(dt)
+  if (is.null(dt) || nrow(dt) == 0L) {
+    return(dt)
+  }
+
+  if ("guid" %in% names(dt)) {
+    dt <- dt[!is.na(guid) & nzchar(guid)]
+  }
+
+  if (all(c("published_at", "link") %in% names(dt))) {
+    dt <- dt[!(is.na(published_at) & (is.na(link) | !nzchar(link)))]
+  }
+
+  if (all(c("feed_id", "guid") %in% names(dt))) {
+    data.table::setorderv(dt, c("published_at", "guid"))
+    dt <- unique(dt, by = c("feed_id", "guid"))
+  }
+
+  data.table::setorderv(dt, "published_at")
+  dt[]
 }
 
 #' Get RSS Feed Data
@@ -228,7 +267,15 @@ get_local_rss_data <- function(feed_id, local_path = NULL) {
     local_path <- get_source_data_path("rss")
   }
 
-  .read_local_data_table(file.path(local_path, .rss_local_filename(feed_id)), sort_cols = "published_at")
+  local_file_path <- file.path(local_path, .rss_local_filename(feed_id))
+  dt <- .read_local_data_table(local_file_path, sort_cols = "published_at")
+  cleaned_dt <- .clean_local_rss_dt(dt)
+
+  if (!is.null(dt) && !identical(dt, cleaned_dt)) {
+    .safe_save_rds(cleaned_dt, local_file_path)
+  }
+
+  cleaned_dt
 }
 
 #' Synchronize Local RSS Data
@@ -248,10 +295,17 @@ sync_local_rss_data <- function(feed_id, url, parser = c("plain", "gdpnow"), loc
 
   new_dt <- get_source_data_rss(feed_id = feed_id, url = url, parser = parser)
   source_utime <- if (nrow(new_dt) == 0L || all(is.na(new_dt$published_at))) NULL else max(new_dt$published_at, na.rm = TRUE)
+  local_file_path <- file.path(local_path, .rss_local_filename(feed_id))
+
+  old_dt <- .safe_read_rds(local_file_path, default = NULL)
+  cleaned_old_dt <- .clean_local_rss_dt(old_dt)
+  if (!is.null(old_dt) && !identical(old_dt, cleaned_old_dt)) {
+    .safe_save_rds(cleaned_old_dt, local_file_path)
+  }
 
   sync_local_data(
     new_data = new_dt,
-    local_file_path = file.path(local_path, .rss_local_filename(feed_id)),
+    local_file_path = local_file_path,
     key_cols = c("feed_id", "guid"),
     order_cols = "published_at",
     source_utime = source_utime
@@ -273,8 +327,8 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
   }
 
   if ("active" %in% names(registry)) {
-    active <- tolower(as.character(registry$active))
-    registry <- registry[is.na(active) | active %in% c("true", "1", "yes", "y")]
+    active_flag <- tolower(as.character(registry[["active"]]))
+    registry <- registry[is.na(active_flag) | active_flag %in% c("true", "1", "yes", "y")]
   }
 
   summary_list <- lapply(seq_len(nrow(registry)), function(i) {

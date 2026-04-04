@@ -174,8 +174,8 @@ RSS feed registry batch sync is available through
 `RSS.registry_file` and synchronizes each configured feed into a local `.rds`
 table.
 
-The shipped example registry includes Atlanta Fed, SEC, and Federal Reserve
-seeds:
+The shipped example registry includes Atlanta Fed, SEC, Federal Reserve, and
+CFTC seeds:
 
 ```json
 [
@@ -204,6 +204,15 @@ seeds:
     "type": "central_bank_press_release",
     "parser": "plain",
     "main_group": "us_monetary_policy",
+    "active": true
+  },
+  {
+    "feed_id": "cftc_press_releases",
+    "provider": "cftc",
+    "url": "https://www.cftc.gov/RSS/RSSGP/rssgp.xml",
+    "type": "regulatory_press_release",
+    "parser": "plain",
+    "main_group": "us_derivatives_regulation",
     "active": true
   }
 ]

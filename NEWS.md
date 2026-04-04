@@ -1,3 +1,14 @@
+# investdatar 0.1.3.4
+
+- Fixed RSS registry batch sync so active feeds are filtered correctly instead
+  of collapsing to an empty batch.
+- Hardened RSS feed parsing for live malformed feeds by cleaning leading BOM or
+  whitespace and falling back to tolerant HTML parsing when strict XML parsing
+  fails.
+- Added local RSS cleanup and stronger fallback keys so malformed legacy rows,
+  including previously broken Federal Reserve press-release rows, are repaired
+  on read and resync.
+
 # investdatar 0.1.3.3
 
 - Expanded the shipped RSS registry seeds to include SEC press releases and

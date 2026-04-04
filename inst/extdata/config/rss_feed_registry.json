@@ -25,5 +25,14 @@
     "parser": "plain",
     "main_group": "us_monetary_policy",
     "active": true
+  },
+  {
+    "feed_id": "cftc_press_releases",
+    "provider": "cftc",
+    "url": "https://www.cftc.gov/RSS/RSSGP/rssgp.xml",
+    "type": "regulatory_press_release",
+    "parser": "plain",
+    "main_group": "us_derivatives_regulation",
+    "active": true
   }
 ]
