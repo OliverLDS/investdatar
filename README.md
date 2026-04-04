@@ -16,6 +16,7 @@ Supported providers currently include:
 
 - FRED
 - World Bank via `wbstats`
+- RSS narrative feeds
 - iShares
 - OKX
 - Binance
@@ -57,6 +58,10 @@ FRED:
 
 WorldBank:
   data_path: /absolute/path/to/world_bank_data
+
+RSS:
+  data_path: /absolute/path/to/rss_data
+  registry_file: /absolute/path/to/rss_feed_registry.json
 
 Crypto:
   data_path: /absolute/path/to/crypto_data
@@ -101,6 +106,10 @@ wb_dt <- get_source_data_wbstats("NY.GDP.MKTP.CD", country = "US")
 wb_sync <- sync_local_wbstats_data("NY.GDP.MKTP.CD", "US")
 wb_local <- get_local_wbstats_data("NY.GDP.MKTP.CD", "US")
 
+rss_dt <- get_source_data_rss("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
+rss_sync <- sync_local_rss_data("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
+rss_local <- get_local_rss_data("atlfed_gdpnow")
+
 ishare_local <- get_local_ishare_data("IVV")
 ishare_holdings_sync <- sync_all_ishare_registry_holdings()
 ishare_holdings_local <- get_local_ishare_holdings("DYNF")
@@ -132,6 +141,7 @@ specs as follows:
 
 - `fred` -> `get_local_FRED_data()`
 - `wbstats` -> `get_local_wbstats_data()`
+- `rss` -> `get_local_rss_data()`
 - `ishare` -> `get_local_ishare_data()`
 - `okx` -> `get_local_okx_candle()`
 - `binance` -> `get_local_binance_klines()`
@@ -148,6 +158,7 @@ Current local sync helpers include:
 
 - `sync_local_fred_data()`
 - `sync_local_wbstats_data()`
+- `sync_local_rss_data()`
 - `sync_local_ishare_data()`
 - `sync_local_ishare_holdings()`
 - `sync_local_okx_candle()`
@@ -157,6 +168,27 @@ Current local sync helpers include:
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
 `YahooFinance.registry_file` and synchronizes each one via `quantmod`.
+
+RSS feed registry batch sync is available through
+`sync_all_rss_registry_data()`. It reads feed metadata from the configured
+`RSS.registry_file` and synchronizes each configured feed into a local `.rds`
+table.
+
+The shipped example registry includes an Atlanta Fed GDPNow seed:
+
+```json
+[
+  {
+    "feed_id": "atlfed_gdpnow",
+    "provider": "atlanta_fed",
+    "url": "https://www.atlantafed.org/rss/GDPNow",
+    "type": "macro_narrative",
+    "parser": "gdpnow",
+    "main_group": "us_growth_nowcast",
+    "active": true
+  }
+]
+```
 
 For iShares holdings, `sync_all_ishare_registry_holdings()` no longer syncs the
 entire iShares registry by default. It reads `iShare.holdings_tickers` from the

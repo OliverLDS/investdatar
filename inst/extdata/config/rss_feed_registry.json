@@ -1,0 +1,11 @@
+[
+  {
+    "feed_id": "atlfed_gdpnow",
+    "provider": "atlanta_fed",
+    "url": "https://www.atlantafed.org/rss/GDPNow",
+    "type": "macro_narrative",
+    "parser": "gdpnow",
+    "main_group": "us_growth_nowcast",
+    "active": true
+  }
+]

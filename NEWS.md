@@ -1,3 +1,12 @@
+# investdatar 0.1.3.2
+
+- Added a narrow RSS narrative-feed module with standardized fetch, local read,
+  local sync, registry batch sync, and dataset-description helpers.
+- Added a feed-specific parser for Atlanta Fed GDPNow RSS items, including
+  parsed fields such as period label, estimate value, and change direction.
+- Added RSS source-spec integration plus shipped example config and registry
+  seed entries for RSS feeds.
+
 # investdatar 0.1.3.1
 
 - Fixed local sync behavior so source rows with existing keys are refreshed

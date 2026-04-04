@@ -46,6 +46,15 @@ get_source_spec <- function(source) {
       capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
       functions = list(fetch = "get_source_data_wbstats", fetch_utime = "get_source_utime_wbstats", sync = "sync_local_wbstats_data", read_local = "get_local_wbstats_data")
     ),
+    rss = .new_source_spec(
+      source_id = "rss",
+      config_key = "RSS",
+      local_path_source = "RSS",
+      resource_type = "narrative_feed",
+      schema = list(time_col = "published_at", key_cols = c("feed_id", "guid"), value_cols = c("title", "summary", "link")),
+      capabilities = list(source_utime = TRUE, inferred_utime = FALSE, pagination = FALSE, gap_detection = FALSE, sync = TRUE),
+      functions = list(fetch = "get_source_data_rss", fetch_utime = "get_source_utime_rss", sync = "sync_local_rss_data", sync_registry = "sync_all_rss_registry_data", read_local = "get_local_rss_data")
+    ),
     ishare = .new_source_spec(
       source_id = "ishare",
       config_key = "iShare",
@@ -119,7 +128,7 @@ get_source_spec <- function(source) {
 #' @export
 list_source_specs <- function() {
   stats::setNames(
-    lapply(c("fred", "wbstats", "ishare", "alphavantage", "quantmod", "okx", "binance"), get_source_spec),
-    c("fred", "wbstats", "ishare", "alphavantage", "quantmod", "okx", "binance")
+    lapply(c("fred", "wbstats", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance"), get_source_spec),
+    c("fred", "wbstats", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance")
   )
 }

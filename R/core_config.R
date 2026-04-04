@@ -56,6 +56,7 @@
     fred = c("fred"),
     wbstats = c("wbstats", "worldbank", "world_bank", "wb"),
     ishare = c("ishare", "ishares", "ishare_etf", "ishare-etf"),
+    rss = c("rss"),
     crypto = c("crypto"),
     okx = c("okx"),
     binance = c("binance"),
