@@ -1,3 +1,9 @@
+# investdatar 0.1.3.3
+
+- Expanded the shipped RSS registry seeds to include SEC press releases and
+  Federal Reserve press releases as registry-driven plain RSS feeds.
+- Updated the package README to document the broader shipped RSS seed set.
+
 # investdatar 0.1.3.2
 
 - Added a narrow RSS narrative-feed module with standardized fetch, local read,

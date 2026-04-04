@@ -174,7 +174,8 @@ RSS feed registry batch sync is available through
 `RSS.registry_file` and synchronizes each configured feed into a local `.rds`
 table.
 
-The shipped example registry includes an Atlanta Fed GDPNow seed:
+The shipped example registry includes Atlanta Fed, SEC, and Federal Reserve
+seeds:
 
 ```json
 [
@@ -185,6 +186,24 @@ The shipped example registry includes an Atlanta Fed GDPNow seed:
     "type": "macro_narrative",
     "parser": "gdpnow",
     "main_group": "us_growth_nowcast",
+    "active": true
+  },
+  {
+    "feed_id": "sec_press_releases",
+    "provider": "sec",
+    "url": "https://www.sec.gov/news/pressreleases.rss",
+    "type": "regulatory_press_release",
+    "parser": "plain",
+    "main_group": "us_regulation",
+    "active": true
+  },
+  {
+    "feed_id": "fed_press_all",
+    "provider": "federal_reserve",
+    "url": "https://www.federalreserve.gov/feeds/press_all.xml",
+    "type": "central_bank_press_release",
+    "parser": "plain",
+    "main_group": "us_monetary_policy",
     "active": true
   }
 ]
