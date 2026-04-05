@@ -5,6 +5,9 @@ FRED:
 WorldBank:
   data_path: ./data/world_bank
 
+Treasury:
+  data_path: ./data/treasury
+
 RSS:
   data_path: ./data/rss
   registry_file: ./config/rss_feed_registry.json

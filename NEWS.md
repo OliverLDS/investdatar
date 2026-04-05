@@ -1,3 +1,13 @@
+# investdatar 0.1.3.5
+
+- Added a raw U.S. Treasury rates provider covering daily bill rates, par
+  yield curve rates, long-term rates, real yield curve rates, and real
+  long-term rates from the Treasury XML feeds.
+- Added standardized fetch, source-update-time, local read, local sync, batch
+  sync, and dataset-description helpers for Treasury rate panels.
+- Added Treasury source-spec integration plus shipped example config and README
+  guidance for the new provider.
+
 # investdatar 0.1.3.4
 
 - Fixed RSS registry batch sync so active feeds are filtered correctly instead

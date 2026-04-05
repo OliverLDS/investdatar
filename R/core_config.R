@@ -55,6 +55,7 @@
   alias_map <- list(
     fred = c("fred"),
     wbstats = c("wbstats", "worldbank", "world_bank", "wb"),
+    treasury = c("treasury", "ustreasury", "us_treasury", "u.s._treasury"),
     ishare = c("ishare", "ishares", "ishare_etf", "ishare-etf"),
     rss = c("rss"),
     crypto = c("crypto"),

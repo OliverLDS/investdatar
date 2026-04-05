@@ -16,6 +16,7 @@ Supported providers currently include:
 
 - FRED
 - World Bank via `wbstats`
+- U.S. Treasury raw daily rates
 - RSS narrative feeds
 - iShares
 - OKX
@@ -58,6 +59,9 @@ FRED:
 
 WorldBank:
   data_path: /absolute/path/to/world_bank_data
+
+Treasury:
+  data_path: /absolute/path/to/treasury_data
 
 RSS:
   data_path: /absolute/path/to/rss_data
@@ -106,6 +110,10 @@ wb_dt <- get_source_data_wbstats("NY.GDP.MKTP.CD", country = "US")
 wb_sync <- sync_local_wbstats_data("NY.GDP.MKTP.CD", "US")
 wb_local <- get_local_wbstats_data("NY.GDP.MKTP.CD", "US")
 
+treasury_dt <- get_source_data_treasury_rates("par_yield_curve", years = 2026)
+treasury_sync <- sync_local_treasury_rates("par_yield_curve")
+treasury_local <- get_local_treasury_rates("par_yield_curve")
+
 rss_dt <- get_source_data_rss("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
 rss_sync <- sync_local_rss_data("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
 rss_local <- get_local_rss_data("atlfed_gdpnow")
@@ -142,6 +150,7 @@ specs as follows:
 - `fred` -> `get_local_FRED_data()`
 - `wbstats` -> `get_local_wbstats_data()`
 - `rss` -> `get_local_rss_data()`
+- `treasury` -> `get_local_treasury_rates()`
 - `ishare` -> `get_local_ishare_data()`
 - `okx` -> `get_local_okx_candle()`
 - `binance` -> `get_local_binance_klines()`
@@ -159,6 +168,7 @@ Current local sync helpers include:
 - `sync_local_fred_data()`
 - `sync_local_wbstats_data()`
 - `sync_local_rss_data()`
+- `sync_local_treasury_rates()`
 - `sync_local_ishare_data()`
 - `sync_local_ishare_holdings()`
 - `sync_local_okx_candle()`
@@ -168,6 +178,16 @@ Current local sync helpers include:
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
 `YahooFinance.registry_file` and synchronizes each one via `quantmod`.
+
+Treasury raw-rate batch sync is available through `sync_all_treasury_rates()`.
+It synchronizes the five built-in Treasury datasets into the configured
+`Treasury.data_path`:
+
+- `bill_rates`
+- `par_yield_curve`
+- `long_term_rates`
+- `real_yield_curve`
+- `real_long_term_rates`
 
 RSS feed registry batch sync is available through
 `sync_all_rss_registry_data()`. It reads feed metadata from the configured

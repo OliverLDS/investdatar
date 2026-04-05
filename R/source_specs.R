@@ -46,6 +46,21 @@ get_source_spec <- function(source) {
       capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
       functions = list(fetch = "get_source_data_wbstats", fetch_utime = "get_source_utime_wbstats", sync = "sync_local_wbstats_data", read_local = "get_local_wbstats_data")
     ),
+    treasury = .new_source_spec(
+      source_id = "treasury",
+      config_key = "Treasury",
+      local_path_source = "Treasury",
+      resource_type = "rate_panel",
+      schema = list(time_col = "date", key_cols = c("dataset", "date", "series_id"), value_cols = "value"),
+      capabilities = list(source_utime = TRUE, inferred_utime = FALSE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
+      functions = list(
+        fetch = "get_source_data_treasury_rates",
+        fetch_utime = "get_source_utime_treasury_rates",
+        sync = "sync_local_treasury_rates",
+        sync_all = "sync_all_treasury_rates",
+        read_local = "get_local_treasury_rates"
+      )
+    ),
     rss = .new_source_spec(
       source_id = "rss",
       config_key = "RSS",
@@ -128,7 +143,7 @@ get_source_spec <- function(source) {
 #' @export
 list_source_specs <- function() {
   stats::setNames(
-    lapply(c("fred", "wbstats", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance"), get_source_spec),
-    c("fred", "wbstats", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance")
+    lapply(c("fred", "wbstats", "treasury", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance"), get_source_spec),
+    c("fred", "wbstats", "treasury", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance")
   )
 }
