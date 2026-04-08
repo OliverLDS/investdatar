@@ -1,3 +1,14 @@
+# investdatar 0.1.3.7
+
+- Added batch sync run logs plus `get_latest_sync_run()` so downstream scripts
+  can inspect the most recent registry or batch sync result directly.
+- Updated Yahoo Finance batch sync so omitted `from` now uses per-ticker local
+  coverage minus a 10-day overlap, reducing download size while preserving
+  safety for revised latest rows.
+- Added shipped `daily_sync.R` and `report_recent_sync.R` examples for local
+  scheduled sync plus terminal reporting of newly inserted RSS items and
+  optional AI summaries of recent FRED and Yahoo updates.
+
 # investdatar 0.1.3.6
 
 - Added a World Bank registry workflow with helpers to resolve, read, extend,

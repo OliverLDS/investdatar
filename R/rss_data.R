@@ -325,6 +325,7 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
   if (is.null(local_path)) {
     local_path <- get_source_data_path("rss", create = TRUE)
   }
+  run_started_at <- Sys.time()
 
   if ("active" %in% names(registry)) {
     active_flag <- tolower(as.character(registry[["active"]]))
@@ -367,7 +368,16 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "rss",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }
 
 #' Describe RSS Data

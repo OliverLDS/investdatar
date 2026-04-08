@@ -77,6 +77,17 @@ fetch_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "yahoo",
   stop("A local_path must be supplied for quantmod sources other than 'yahoo'.")
 }
 
+.quantmod_latest_local_date <- function(label, src = "yahoo", interval = "1d", local_path = NULL) {
+  dt <- tryCatch(
+    get_local_quantmod_OHLC(label = label, src = src, interval = interval, local_path = local_path),
+    error = function(e) NULL
+  )
+  if (is.null(dt) || nrow(dt) == 0L || !"date" %in% names(dt)) {
+    return(as.Date(NA))
+  }
+  max(dt$date, na.rm = TRUE)
+}
+
 #' Get Yahoo Finance Registry File Path
 #'
 #' Resolve the JSON registry path for Yahoo Finance ticker metadata. If no
@@ -169,40 +180,64 @@ sync_local_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "ya
 
 #' Synchronize All Yahoo Finance Tickers In The Registry
 #'
-#' @param from Start date passed to `quantmod::getSymbols()`.
+#' @param from Optional start date passed to `quantmod::getSymbols()`. When
+#'   omitted, the function derives a per-ticker start date from the latest local
+#'   record minus `overlap_days`, or falls back to `to - initial_lookback_days`
+#'   for tickers without local data.
 #' @param to End date passed to `quantmod::getSymbols()`.
 #' @param registry Optional Yahoo Finance registry table.
 #' @param local_path Optional local storage path.
 #' @param src quantmod source, default `"yahoo"`.
+#' @param overlap_days Integer safety overlap used when deriving per-ticker
+#'   incremental start dates from local data.
+#' @param initial_lookback_days Integer fallback lookback for tickers without
+#'   local data when `from` is omitted.
 #'
 #' @return Summary `data.table`.
 #' @export
-sync_all_yahoofinance_registry_data <- function(from,
-                                                to,
+sync_all_yahoofinance_registry_data <- function(from = NULL,
+                                                to = Sys.Date(),
                                                 registry = get_yahoofinance_registry(),
                                                 local_path = NULL,
-                                                src = "yahoo") {
+                                                src = "yahoo",
+                                                overlap_days = 10L,
+                                                initial_lookback_days = 400L) {
   stopifnot("yahoo_finance_ticker" %in% names(registry))
 
   if (is.null(local_path)) {
     local_path <- .quantmod_default_local_path(src = src, create = TRUE)
   }
+  run_started_at <- Sys.time()
+  to <- as.Date(to)
+  overlap_days <- as.integer(overlap_days)
+  initial_lookback_days <- as.integer(initial_lookback_days)
 
   summary_list <- lapply(seq_len(nrow(registry)), function(i) {
     ticker <- registry$yahoo_finance_ticker[[i]]
+    latest_local_date <- .quantmod_latest_local_date(ticker, src = src, interval = "1d", local_path = local_path)
+    ticker_from <- if (!is.null(from)) {
+      as.Date(from)
+    } else if (!is.na(latest_local_date)) {
+      latest_local_date - overlap_days
+    } else {
+      to - initial_lookback_days
+    }
 
     tryCatch(
       {
         res <- sync_local_quantmod_OHLC(
           ticker = ticker,
           label = ticker,
-          from = from,
+          from = ticker_from,
           to = to,
           src = src,
           local_path = local_path
         )
         data.table::data.table(
           yahoo_finance_ticker = ticker,
+          from = ticker_from,
+          to = to,
+          latest_local_date = latest_local_date,
           status = "success",
           updated = isTRUE(res$updated),
           n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
@@ -213,6 +248,9 @@ sync_all_yahoofinance_registry_data <- function(from,
       error = function(e) {
         data.table::data.table(
           yahoo_finance_ticker = ticker,
+          from = ticker_from,
+          to = to,
+          latest_local_date = latest_local_date,
           status = "error",
           updated = FALSE,
           n_rows = NA_integer_,
@@ -223,5 +261,20 @@ sync_all_yahoofinance_registry_data <- function(from,
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "yahoofinance",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(
+      from = if (is.null(from)) NULL else as.character(as.Date(from)),
+      to = as.character(to),
+      src = src,
+      overlap_days = overlap_days,
+      initial_lookback_days = initial_lookback_days
+    ),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }

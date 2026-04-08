@@ -30,6 +30,60 @@
   }
 }
 
+.sync_run_log_dir <- function(local_path) {
+  file.path(local_path, "_sync_runs")
+}
+
+.sync_run_log_path <- function(source_id, local_path, run_finished_at = Sys.time()) {
+  stamp <- format(as.POSIXct(run_finished_at, tz = "UTC"), "%Y%m%dT%H%M%SZ", tz = "UTC")
+  source_id <- gsub("[^A-Za-z0-9._-]+", "_", source_id)
+  file.path(.sync_run_log_dir(local_path), sprintf("%s__%s.rds", source_id, stamp))
+}
+
+.write_sync_run_log <- function(source_id, summary, local_path, params = list(),
+                                run_started_at = Sys.time(), run_finished_at = Sys.time()) {
+  if (is.null(local_path) || !nzchar(local_path)) {
+    return(NULL)
+  }
+
+  log_path <- .sync_run_log_path(source_id, local_path = local_path, run_finished_at = run_finished_at)
+  .safe_save_rds(
+    list(
+      source_id = source_id,
+      run_started_at = as.POSIXct(run_started_at, tz = "UTC"),
+      run_finished_at = as.POSIXct(run_finished_at, tz = "UTC"),
+      params = params,
+      summary = .as_data_table(summary)
+    ),
+    log_path
+  )
+  log_path
+}
+
+#' Get The Latest Batch Sync Run Log
+#'
+#' @param source_id Source identifier used for the sync log filename prefix.
+#' @param local_path Local source data path that contains the `_sync_runs`
+#'   directory.
+#'
+#' @return A run-log list, or `NULL` when no matching log file exists.
+#' @export
+get_latest_sync_run <- function(source_id, local_path) {
+  run_dir <- .sync_run_log_dir(local_path)
+  if (!dir.exists(run_dir)) {
+    return(NULL)
+  }
+
+  source_id <- gsub("[^A-Za-z0-9._-]+", "_", source_id)
+  pattern <- sprintf("^%s__.*\\.rds$", source_id)
+  paths <- list.files(run_dir, pattern = pattern, full.names = TRUE)
+  if (length(paths) == 0L) {
+    return(NULL)
+  }
+
+  .safe_read_rds(sort(paths)[[length(paths)]], default = NULL)
+}
+
 #' Get Local Data Metadata
 #'
 #' @param local_file_path Path to a local `.rds` data file.

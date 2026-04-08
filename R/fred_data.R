@@ -300,6 +300,10 @@ sync_all_fred_registry_data <- function(registry = get_fred_registry(), config =
                                         local_path = NULL, from_server = FALSE,
                                         tz = "America/Chicago") {
   stopifnot("series_id" %in% names(registry))
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("fred", create = TRUE)
+  }
+  run_started_at <- Sys.time()
 
   summary_list <- lapply(registry$series_id, function(series_id) {
     tryCatch(
@@ -333,7 +337,16 @@ sync_all_fred_registry_data <- function(registry = get_fred_registry(), config =
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "fred",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(from_server = from_server, tz = tz),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }
 
 #' Detect Gaps In Local FRED Data

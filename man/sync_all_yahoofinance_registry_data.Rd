@@ -5,15 +5,20 @@
 \title{Synchronize All Yahoo Finance Tickers In The Registry}
 \usage{
 sync_all_yahoofinance_registry_data(
-  from,
-  to,
+  from = NULL,
+  to = Sys.Date(),
   registry = get_yahoofinance_registry(),
   local_path = NULL,
-  src = "yahoo"
+  src = "yahoo",
+  overlap_days = 10L,
+  initial_lookback_days = 400L
 )
 }
 \arguments{
-\item{from}{Start date passed to \code{quantmod::getSymbols()}.}
+\item{from}{Optional start date passed to \code{quantmod::getSymbols()}. When
+omitted, the function derives a per-ticker start date from the latest local
+record minus \code{overlap_days}, or falls back to \code{to - initial_lookback_days}
+for tickers without local data.}
 
 \item{to}{End date passed to \code{quantmod::getSymbols()}.}
 
@@ -22,6 +27,12 @@ sync_all_yahoofinance_registry_data(
 \item{local_path}{Optional local storage path.}
 
 \item{src}{quantmod source, default \code{"yahoo"}.}
+
+\item{overlap_days}{Integer safety overlap used when deriving per-ticker
+incremental start dates from local data.}
+
+\item{initial_lookback_days}{Integer fallback lookback for tickers without
+local data when \code{from} is omitted.}
 }
 \value{
 Summary \code{data.table}.

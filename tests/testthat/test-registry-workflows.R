@@ -43,19 +43,23 @@ test_that("add_fred_registry_series updates registry schema without duplicates",
 
 test_that("sync_all_fred_registry_data returns success and failure summary", {
   registry <- data.table::data.table(series_id = c("FEDFUNDS", "BAD"))
+  local_dir <- withr::local_tempdir()
 
   summary_dt <- testthat::with_mocked_bindings(
     sync_local_fred_data = function(series_id, config = NULL, local_path = NULL, from_server = FALSE, tz = "America/Chicago") {
       if (series_id == "BAD") stop("broken source")
       list(updated = TRUE, n_rows = 10L, n_new_rows = 2L)
     },
-    investdatar::sync_all_fred_registry_data(registry = registry),
+    investdatar::sync_all_fred_registry_data(registry = registry, local_path = local_dir),
     .package = "investdatar"
   )
 
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[series_id == "FEDFUNDS", status][[1]], "success")
   expect_equal(summary_dt[series_id == "BAD", status][[1]], "error")
+  run_log <- investdatar::get_latest_sync_run("fred", local_path = local_dir)
+  expect_equal(run_log$source_id, "fred")
+  expect_equal(nrow(run_log$summary), 2L)
 })
 
 test_that("World Bank registry helpers add series and batch sync via mocked helpers", {
@@ -174,18 +178,35 @@ test_that("Yahoo Finance registry sync returns success and failure summary", {
   registry <- data.table::data.table(
     yahoo_finance_ticker = c("^GSPC", "^VIX")
   )
+  local_dir <- withr::local_tempdir()
+  local_dt <- data.table::data.table(
+    source = "quantmod_yahoo",
+    symbol = "^GSPC",
+    interval = "1d",
+    datetime = as.POSIXct(c("2026-03-20", "2026-03-21"), tz = "UTC"),
+    date = as.Date(c("2026-03-20", "2026-03-21")),
+    open = c(1, 2),
+    high = c(1, 2),
+    low = c(1, 2),
+    close = c(1, 2),
+    volume = c(1, 2),
+    adj_close = c(1, 2)
+  )
+  local_file <- getFromNamespace(".quantmod_local_filename", "investdatar")("^GSPC", src = "yahoo", interval = "1d")
+  saveRDS(local_dt, file.path(local_dir, local_file))
 
   summary_dt <- testthat::with_mocked_bindings(
     sync_local_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", local_path = NULL) {
       expect_equal(label, ticker)
+      if (ticker == "^GSPC") expect_equal(as.Date(from), as.Date("2026-03-11"))
+      if (ticker == "^VIX") expect_equal(as.Date(from), as.Date("2025-02-24"))
       if (ticker == "^VIX") stop("download failed")
       list(updated = TRUE, n_rows = 100L, n_new_rows = 3L)
     },
     investdatar::sync_all_yahoofinance_registry_data(
-      from = "2026-01-01",
       to = "2026-03-31",
       registry = registry,
-      local_path = withr::local_tempdir()
+      local_path = local_dir
     ),
     .package = "investdatar"
   )
@@ -193,4 +214,30 @@ test_that("Yahoo Finance registry sync returns success and failure summary", {
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", status][[1]], "success")
   expect_equal(summary_dt[yahoo_finance_ticker == "^VIX", status][[1]], "error")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", latest_local_date][[1]], as.Date("2026-03-21"))
+  run_log <- investdatar::get_latest_sync_run("yahoofinance", local_path = local_dir)
+  expect_equal(run_log$source_id, "yahoofinance")
+  expect_equal(nrow(run_log$summary), 2L)
+})
+
+test_that("RSS registry sync writes a batch run log", {
+  registry <- data.table::data.table(
+    feed_id = "demo_feed",
+    url = "https://example.com/feed.xml",
+    parser = "plain"
+  )
+  local_dir <- withr::local_tempdir()
+
+  summary_dt <- testthat::with_mocked_bindings(
+    sync_local_rss_data = function(feed_id, url, parser = c("plain", "gdpnow"), local_path = NULL) {
+      list(updated = TRUE, n_rows = 4L, n_new_rows = 1L)
+    },
+    investdatar::sync_all_rss_registry_data(registry = registry, local_path = local_dir),
+    .package = "investdatar"
+  )
+
+  expect_equal(summary_dt$feed_id[[1]], "demo_feed")
+  run_log <- investdatar::get_latest_sync_run("rss", local_path = local_dir)
+  expect_equal(run_log$source_id, "rss")
+  expect_equal(run_log$summary$feed_id[[1]], "demo_feed")
 })

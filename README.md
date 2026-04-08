@@ -202,6 +202,49 @@ RSS feed registry batch sync is available through
 `RSS.registry_file` and synchronizes each configured feed into a local `.rds`
 table.
 
+For scheduled local maintenance, a runnable example is shipped at
+`inst/scripts/daily_sync.R`. It uses a daily batch plus slower weekly and
+monthly syncs:
+
+```r
+sync_safe <- function(expr) {
+  try(expr, silent = TRUE)
+}
+
+sync_safe(investdatar::sync_all_ishare_registry_holdings())
+sync_safe(investdatar::sync_all_rss_registry_data())
+sync_safe(investdatar::sync_all_treasury_rates())
+sync_safe(investdatar::sync_all_yahoofinance_registry_data())
+
+if (format(Sys.Date(), "%u") == "1") {
+  sync_safe(investdatar::sync_all_fred_registry_data())
+  sync_safe(investdatar::sync_all_ishare_registry_data())
+}
+
+if (format(Sys.Date(), "%d") == "01") {
+  sync_safe(investdatar::sync_all_wbstats_registry_data())
+}
+```
+
+You can run the shipped example with:
+
+```sh
+Rscript inst/scripts/daily_sync.R
+```
+
+A second shipped script can be run after the sync to print recent RSS headlines
+in the terminal and request short AI summaries for newly updated FRED and Yahoo
+data:
+
+```sh
+Rscript inst/scripts/report_recent_sync.R
+```
+
+The reporting script reads the latest batch sync logs to detect which datasets
+were actually refreshed and reports newly inserted RSS items from that run. The
+AI summary step is optional and requires the `inferencer` package plus your
+OpenRouter credentials in the local environment.
+
 The shipped example registry includes Atlanta Fed, SEC, Federal Reserve, and
 CFTC seeds:
 

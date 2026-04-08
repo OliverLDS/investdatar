@@ -6,7 +6,7 @@
 \usage{
 add_wbstats_registry_series(
   indicator,
-  country,
+  country = NULL,
   freq = "Y",
   main_group = NA_character_,
   label = NA_character_,
