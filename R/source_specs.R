@@ -44,7 +44,7 @@ get_source_spec <- function(source) {
       resource_type = "single_series",
       schema = list(time_col = "date", key_cols = c("indicator_id", "country", "date"), value_cols = "value"),
       capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
-      functions = list(fetch = "get_source_data_wbstats", fetch_utime = "get_source_utime_wbstats", sync = "sync_local_wbstats_data", read_local = "get_local_wbstats_data")
+      functions = list(fetch = "get_source_data_wbstats", fetch_utime = "get_source_utime_wbstats", sync = "sync_local_wbstats_data", sync_registry = "sync_all_wbstats_registry_data", read_local = "get_local_wbstats_data")
     ),
     treasury = .new_source_spec(
       source_id = "treasury",

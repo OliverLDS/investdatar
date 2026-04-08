@@ -91,6 +91,100 @@
   sprintf("%s__%s__%s.rds", indicator, country, toupper(freq))
 }
 
+#' Get World Bank Registry File Path
+#'
+#' Resolve the JSON registry path for World Bank indicator metadata. If no
+#' explicit `registry_file` is configured, the function falls back to a default
+#' filename in the package config directory.
+#'
+#' @param config_dir Optional configuration directory used for the fallback
+#'   registry path.
+#'
+#' @return Character scalar path.
+#' @export
+get_wbstats_registry_file_path <- function(config_dir = NULL) {
+  cfg <- tryCatch(get_source_config("wbstats"), error = function(e) list())
+  registry_file <- cfg$registry_file
+
+  if (is.null(registry_file) || !nzchar(registry_file)) {
+    if (is.null(config_dir)) {
+      config_dir <- getOption("investdatar.config_dir")
+    }
+    if (is.null(config_dir) || !nzchar(config_dir)) {
+      stop(
+        "No WorldBank registry path is configured. Set WorldBank.registry_file in your ",
+        "config or load a config file rooted at the desired directory."
+      )
+    }
+    return(file.path(config_dir, "world_bank_series_registry.json"))
+  }
+
+  .normalize_scalar_path(registry_file, config_dir = getOption("investdatar.config_dir"))
+}
+
+#' Get World Bank Registry
+#'
+#' @param registry_path Optional JSON registry path.
+#'
+#' @return `data.table`.
+#' @export
+get_wbstats_registry <- function(registry_path = get_wbstats_registry_file_path()) {
+  .read_json_registry(
+    registry_path,
+    empty_cols = c("indicator", "country", "freq", "main_group", "label", "notes", "active", "update_time")
+  )
+}
+
+#' Add Or Update One World Bank Registry Entry
+#'
+#' @param indicator World Bank indicator code.
+#' @param country Country or aggregate code.
+#' @param freq Frequency code.
+#' @param main_group Optional grouping label.
+#' @param label Optional display label.
+#' @param notes Optional free-text notes.
+#' @param active Logical flag stored in the registry.
+#' @param registry_path Optional registry JSON path.
+#'
+#' @return The added or updated row as a `data.table`.
+#' @export
+add_wbstats_registry_series <- function(indicator, country = NULL, freq = "Y",
+                                        main_group = NA_character_,
+                                        label = NA_character_,
+                                        notes = NA_character_,
+                                        active = TRUE,
+                                        registry_path = get_wbstats_registry_file_path()) {
+  registry <- get_wbstats_registry(registry_path = registry_path)
+  template_names <- names(registry)
+  country_value <- if (is.null(country) || (is.character(country) && length(country) == 1L && (!nzchar(country) || is.na(country)))) "" else as.character(country)
+
+  new_row <- data.table::data.table(
+    indicator = indicator,
+    country = country_value,
+    freq = toupper(freq),
+    main_group = main_group,
+    label = label,
+    notes = notes,
+    active = active,
+    update_time = format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+  )
+  new_row <- .align_registry_schema(new_row, template_names)
+
+  if (nrow(registry) > 0L) {
+    indicator_value <- indicator
+    freq_value <- toupper(freq)
+    registry <- registry[!(indicator == indicator_value & country == country_value & toupper(freq) == freq_value)]
+  }
+
+  registry <- data.table::rbindlist(list(registry, new_row), use.names = TRUE, fill = TRUE)
+  data.table::setorderv(registry, c("indicator", "country", "freq"))
+  .write_json_registry(registry, registry_path)
+
+  indicator_value <- indicator
+  freq_value <- toupper(freq)
+  registry[indicator == indicator_value & country == country_value & toupper(freq) == freq_value]
+}
+
 #' Get World Bank Data via wbstats
 #'
 #' Downloads indicator data using the `wbstats` package and standardizes it to
@@ -209,6 +303,76 @@ sync_local_wbstats_data <- function(indicator, country, freq = "Y", local_path =
     order_cols = "date",
     source_utime = source_utime
   )
+}
+
+#' Synchronize All World Bank Registry Series
+#'
+#' @param registry Optional World Bank registry table.
+#' @param local_path Optional local storage path.
+#' @param ... Passed to `sync_local_wbstats_data()`.
+#'
+#' @return Summary `data.table`.
+#' @export
+sync_all_wbstats_registry_data <- function(registry = get_wbstats_registry(), local_path = NULL, ...) {
+  stopifnot(all(c("indicator", "country") %in% names(registry)))
+
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("wbstats", create = TRUE)
+  }
+
+  if ("active" %in% names(registry)) {
+    active_flag <- tolower(as.character(registry[["active"]]))
+    registry <- registry[is.na(active_flag) | active_flag %in% c("true", "1", "yes", "y")]
+  }
+
+  summary_list <- lapply(seq_len(nrow(registry)), function(i) {
+    indicator <- registry$indicator[[i]]
+    country <- if ("country" %in% names(registry)) registry$country[[i]] else ""
+    if (is.null(country) || is.na(country) || !nzchar(country)) {
+      country <- "countries_only"
+    }
+    freq <- if ("freq" %in% names(registry)) registry$freq[[i]] else "Y"
+    if (is.null(freq) || is.na(freq) || !nzchar(freq)) {
+      freq <- "Y"
+    }
+    freq <- toupper(freq)
+
+    tryCatch(
+      {
+        res <- sync_local_wbstats_data(
+          indicator = indicator,
+          country = country,
+          freq = freq,
+          local_path = local_path,
+          ...
+        )
+        data.table::data.table(
+          indicator = indicator,
+          country = country,
+          freq = freq,
+          status = "success",
+          updated = isTRUE(res$updated),
+          n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
+          n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
+          error = NA_character_
+        )
+      },
+      error = function(e) {
+        data.table::data.table(
+          indicator = indicator,
+          country = country,
+          freq = freq,
+          status = "error",
+          updated = FALSE,
+          n_rows = NA_integer_,
+          n_new_rows = NA_integer_,
+          error = conditionMessage(e)
+        )
+      }
+    )
+  })
+
+  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
 }
 
 #' Detect Gaps In Local World Bank Data

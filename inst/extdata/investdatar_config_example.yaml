@@ -4,6 +4,7 @@ FRED:
 
 WorldBank:
   data_path: ./data/world_bank
+  registry_file: ./config/world_bank_series_registry.json
 
 Treasury:
   data_path: ./data/treasury

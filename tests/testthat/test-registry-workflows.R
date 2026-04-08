@@ -58,6 +58,57 @@ test_that("sync_all_fred_registry_data returns success and failure summary", {
   expect_equal(summary_dt[series_id == "BAD", status][[1]], "error")
 })
 
+test_that("World Bank registry helpers add series and batch sync via mocked helpers", {
+  registry_path <- file.path(withr::local_tempdir(), "world_bank_registry.json")
+  jsonlite::write_json(
+    list(
+      list(
+        indicator = "NY.GDP.MKTP.CD",
+        country = "US",
+        freq = "Y",
+        main_group = "growth",
+        label = "US GDP",
+        notes = NA_character_,
+        active = TRUE,
+        update_time = "2026-04-08 10:00:00"
+      )
+    ),
+    registry_path,
+    pretty = TRUE,
+    auto_unbox = TRUE,
+    null = "null"
+  )
+
+  out <- investdatar::add_wbstats_registry_series(
+    "FP.CPI.TOTL.ZG",
+    country = NULL,
+    freq = "Y",
+    main_group = "inflation",
+    label = "US CPI inflation",
+    registry_path = registry_path
+  )
+  registry <- investdatar::get_wbstats_registry(registry_path = registry_path)
+
+  expect_equal(nrow(registry), 2L)
+  expect_equal(sum(registry$indicator == "FP.CPI.TOTL.ZG"), 1L)
+  expect_equal(out$country[[1]], "")
+  expect_equal(out$main_group[[1]], "inflation")
+
+  summary_dt <- testthat::with_mocked_bindings(
+    sync_local_wbstats_data = function(indicator, country, freq = "Y", local_path = NULL, ...) {
+      if (indicator == "FP.CPI.TOTL.ZG") expect_equal(country, "countries_only")
+      if (indicator == "FP.CPI.TOTL.ZG") stop("download failed")
+      list(updated = TRUE, n_rows = 20L, n_new_rows = 1L)
+    },
+    investdatar::sync_all_wbstats_registry_data(registry = registry, local_path = withr::local_tempdir()),
+    .package = "investdatar"
+  )
+
+  expect_equal(nrow(summary_dt), 2L)
+  expect_equal(summary_dt[indicator == "NY.GDP.MKTP.CD", status][[1]], "success")
+  expect_equal(summary_dt[indicator == "FP.CPI.TOTL.ZG", status][[1]], "error")
+})
+
 test_that("iShare registry helpers add tickers and batch sync via mocked helpers", {
   registry_path <- file.path(withr::local_tempdir(), "ishare_registry.json")
   jsonlite::write_json(

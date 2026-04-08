@@ -1,3 +1,13 @@
+# investdatar 0.1.3.6
+
+- Added a World Bank registry workflow with helpers to resolve, read, extend,
+  and batch-sync registered `wbstats` indicator definitions.
+- Added a shipped yearly World Bank indicator seed registry derived from the
+  package's existing analysis workflows.
+- Updated config handling and package docs so `WorldBank.registry_file` can
+  drive registry-based batch sync, with blank registry `country` values
+  defaulting to the standard `countries_only` scope.
+
 # investdatar 0.1.3.5
 
 - Added a raw U.S. Treasury rates provider covering daily bill rates, par

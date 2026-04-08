@@ -1,0 +1,312 @@
+[
+  {
+    "indicator": "NV.AGR.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "RV",
+    "label": "RV_A",
+    "notes": "Agriculture, forestry, and fishing, value added (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NV.IND.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "RV",
+    "label": "RV_I",
+    "notes": "Industry (including construction), value added (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NV.IND.MANF.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "RV",
+    "label": "manufacturing_share",
+    "notes": "Manufacturing, value added (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NV.SRV.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "RV",
+    "label": "RV_S",
+    "notes": "Services, value added (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "BN.CAB.XOKA.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "BOP",
+    "label": "BOP_CA",
+    "notes": "Current account balance (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "BX.TRF.PWKR.DT.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "BOP",
+    "label": "BOP_Rem",
+    "notes": "Personal remittances, received (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "BX.KLT.DINV.WD.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "BOP",
+    "label": "BOP_FDI_in",
+    "notes": "Foreign direct investment, net inflows (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "BM.KLT.DINV.WD.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "BOP",
+    "label": "BOP_FDI_out",
+    "notes": "Foreign direct investment, net outflows (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "GC.REV.XGRT.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "GC",
+    "label": "GC_Rev",
+    "notes": "Revenue, excluding grants (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "GC.DOD.TOTL.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "GC",
+    "label": "GC_Debt",
+    "notes": "Central government debt, total (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "GC.XPN.TOTL.GD.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "GC",
+    "label": "GC_Exp",
+    "notes": "Expense (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.CON.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "consumption_total_share",
+    "notes": "Final consumption expenditure (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.CON.GOVT.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "NA_G",
+    "notes": "General government final consumption expenditure (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.CON.PRVT.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "consumption_private_share",
+    "notes": "Households and NPISHs final consumption expenditure (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.GDI.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "NA_I",
+    "notes": "Gross capital formation (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.GDI.FTOT.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "gross_fixed_capital_formation_share",
+    "notes": "Gross fixed capital formation (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.EXP.GNFS.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "exports_share",
+    "notes": "Exports of goods and services (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.IMP.GNFS.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "imports_share",
+    "notes": "Imports of goods and services (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.DAB.TOTL.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "gross_national_expenditure_share",
+    "notes": "Gross national expenditure (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.TRD.GNFS.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "Trade",
+    "notes": "Trade (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NE.RSB.GNFS.ZS",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NA",
+    "label": "external_balance_goods_services_share",
+    "notes": "External balance on goods and services (% of GDP)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.PCAP.KD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pca_kd",
+    "notes": "GDP per capita (constant 2015 US$)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.PCAP.CD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pca_cd",
+    "notes": "GDP per capita (current US$)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.PCAP.KD.ZG",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pca_pct",
+    "notes": "GDP per capita growth (annual %)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GNP.PCAP.KD.ZG",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gni_pca_pct",
+    "notes": "GNI per capita growth (annual %)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.MKTP.KD.ZG",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pct",
+    "notes": "GDP growth (annual %)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.PCAP.PP.KD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pca_ppp_kd",
+    "notes": "GDP per capita, PPP (constant 2021 international $)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GDP.PCAP.PP.CD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gdp_pca_ppp_cd",
+    "notes": "GDP per capita, PPP (current international $)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GNP.PCAP.KD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gni_pca_kd",
+    "notes": "GNI per capita (constant 2015 US$)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GNP.PCAP.PP.KD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gni_pca_ppp_kd",
+    "notes": "GNI per capita, PPP (constant 2021 international $)",
+    "active": true,
+    "update_time": null
+  },
+  {
+    "indicator": "NY.GNP.PCAP.PP.CD",
+    "country": "",
+    "freq": "Y",
+    "main_group": "NY",
+    "label": "gni_pca_ppp_cd",
+    "notes": "GNI per capita, PPP (current international $)",
+    "active": true,
+    "update_time": null
+  }
+]

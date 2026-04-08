@@ -6,6 +6,9 @@ test_that("config loading normalizes paths and resolves source config", {
       "FRED:",
       "  data_path: ./fred_data",
       "  registry_file: fred_macro_series_registry.json",
+      "WorldBank:",
+      "  data_path: ./world_bank_data",
+      "  registry_file: world_bank_series_registry.json",
       "Treasury:",
       "  data_path: ./treasury_data",
       "RSS:",
@@ -23,12 +26,14 @@ test_that("config loading normalizes paths and resolves source config", {
 
   expect_true(dir.exists(dirname(investdatar::get_source_data_path("fred", config = cfg, create = TRUE))))
   expect_match(investdatar::get_source_data_path("fred", config = cfg), "fred_data$")
+  expect_match(investdatar::get_source_data_path("wbstats", config = cfg), "world_bank_data$")
   expect_match(investdatar::get_source_data_path("treasury", config = cfg), "treasury_data$")
   expect_match(investdatar::get_source_data_path("rss", config = cfg), "rss_data$")
   expect_match(investdatar::get_source_data_path("ishare", config = cfg), "ishare_data$")
   registry_file <- investdatar::get_source_config("fred", config = cfg)$registry_file
   expect_equal(basename(registry_file), "fred_macro_series_registry.json")
   expect_match(registry_file, "fred_macro_series_registry\\.json$")
+  expect_match(investdatar::get_source_config("wbstats", config = cfg)$registry_file, "world_bank_series_registry\\.json$")
   expect_match(investdatar::get_source_config("rss", config = cfg)$registry_file, "rss_feed_registry\\.json$")
 })
 
@@ -40,9 +45,14 @@ test_that("shipped example config is available and loads with normalized relativ
   cfg <- investdatar::load_investdatar_config(example_path)
 
   expect_match(investdatar::get_source_data_path("fred", config = cfg), "extdata/(\\./)?data/fred$")
+  expect_match(investdatar::get_source_data_path("wbstats", config = cfg), "extdata/(\\./)?data/world_bank$")
   expect_match(investdatar::get_source_data_path("treasury", config = cfg), "extdata/(\\./)?data/treasury$")
   expect_match(investdatar::get_source_data_path("rss", config = cfg), "extdata/(\\./)?data/rss$")
   expect_match(investdatar::get_source_data_path("yahoo", config = cfg), "extdata/(\\./)?data/yahoo_finance$")
+  expect_match(
+    investdatar::get_source_config("wbstats", config = cfg)$registry_file,
+    "extdata/(\\./)?config/world_bank_series_registry\\.json$"
+  )
   expect_match(
     investdatar::get_source_config("fred", config = cfg)$registry_file,
     "extdata/(\\./)?config/fred_macro_series_registry\\.json$"
@@ -74,6 +84,7 @@ test_that("source specs expose provider capabilities and schema contracts", {
   expect_true(all(c("fred", "wbstats", "treasury", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance") %in% names(specs)))
   expect_s3_class(investdatar::get_source_spec("fred"), "investdatar_source_spec")
   expect_equal(investdatar::get_source_spec("wbstats")$resource_type, "single_series")
+  expect_equal(investdatar::get_source_spec("wbstats")$functions$sync_registry, "sync_all_wbstats_registry_data")
   expect_equal(investdatar::get_source_spec("treasury")$resource_type, "rate_panel")
   expect_equal(investdatar::get_source_spec("rss")$resource_type, "narrative_feed")
   expect_equal(investdatar::get_source_spec("okx")$resource_type, "market_ohlcv")

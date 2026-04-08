@@ -90,6 +90,13 @@
     }
   }
 
+  if (canonical[[1]] == "wbstats") {
+    idx <- match("worldbank", gsub("[^a-z]", "", existing_lc))
+    if (!is.na(idx)) {
+      return(existing[[idx]])
+    }
+  }
+
   if (canonical[[1]] == "yahoofinance") {
     idx <- match("yahoofinance", gsub("[^a-z]", "", existing_lc))
     if (!is.na(idx)) {

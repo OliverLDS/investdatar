@@ -59,6 +59,7 @@ FRED:
 
 WorldBank:
   data_path: /absolute/path/to/world_bank_data
+  registry_file: /absolute/path/to/world_bank_series_registry.json
 
 Treasury:
   data_path: /absolute/path/to/treasury_data
@@ -178,6 +179,13 @@ Current local sync helpers include:
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
 `YahooFinance.registry_file` and synchronizes each one via `quantmod`.
+
+World Bank registry batch sync is available through
+`sync_all_wbstats_registry_data()`. It reads indicator definitions from the
+configured `WorldBank.registry_file` and synchronizes each registered
+`indicator + country + freq` series. If `country` is blank in the registry,
+the sync falls back to the package default World Bank scope, which is
+`countries_only`.
 
 Treasury raw-rate batch sync is available through `sync_all_treasury_rates()`.
 It synchronizes the five built-in Treasury datasets into the configured
