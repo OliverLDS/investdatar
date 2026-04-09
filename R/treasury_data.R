@@ -421,6 +421,28 @@ get_local_treasury_rates <- function(dataset, local_path = NULL) {
   )
 }
 
+.treasury_sync_years <- function(dataset, years = NULL, local_path = NULL) {
+  if (!is.null(years)) {
+    return(.treasury_requested_years(years))
+  }
+
+  local_dt <- tryCatch(
+    get_local_treasury_rates(dataset = dataset, local_path = local_path),
+    error = function(e) NULL
+  )
+  current_year <- as.integer(format(Sys.Date(), "%Y"))
+  if (is.null(local_dt) || nrow(local_dt) == 0L || !"date" %in% names(local_dt)) {
+    return(NULL)
+  }
+
+  latest_local_year <- suppressWarnings(max(as.integer(format(local_dt$date, "%Y")), na.rm = TRUE))
+  if (!is.finite(latest_local_year)) {
+    return(NULL)
+  }
+
+  seq.int(latest_local_year, current_year)
+}
+
 #' Synchronize Local Treasury Rates
 #'
 #' @inheritParams get_source_data_treasury_rates
@@ -434,7 +456,8 @@ sync_local_treasury_rates <- function(dataset, years = NULL, local_path = NULL) 
     local_path <- get_source_data_path("treasury", create = TRUE)
   }
 
-  fetched <- .collect_treasury_dataset(dataset = dataset, years = years)
+  sync_years <- .treasury_sync_years(dataset = dataset, years = years, local_path = local_path)
+  fetched <- .collect_treasury_dataset(dataset = dataset, years = sync_years)
   source_dt <- fetched$data
   source_utime <- fetched$source_updated_at
 
@@ -452,6 +475,9 @@ sync_local_treasury_rates <- function(dataset, years = NULL, local_path = NULL) 
 #' @param datasets Optional dataset vector. If omitted, sync all supported
 #'   Treasury rate datasets.
 #' @param years Optional year filter passed to `sync_local_treasury_rates()`.
+#'   When omitted, each dataset uses a full-history backfill only if no local
+#'   file exists; otherwise it syncs from the latest local year through the
+#'   current year.
 #' @param local_path Optional local storage path.
 #'
 #' @return Summary `data.table`.
@@ -462,6 +488,7 @@ sync_all_treasury_rates <- function(datasets = names(.treasury_dataset_map()), y
   if (is.null(local_path)) {
     local_path <- get_source_data_path("treasury", create = TRUE)
   }
+  run_started_at <- Sys.time()
 
   summary_list <- lapply(datasets, function(dataset) {
     tryCatch(
@@ -489,7 +516,16 @@ sync_all_treasury_rates <- function(datasets = names(.treasury_dataset_map()), y
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "treasury",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(years = if (is.null(years)) NULL else as.integer(years)),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }
 
 #' Describe Treasury Rates

@@ -86,8 +86,32 @@ test_that("sync_local_treasury_rates writes data under the treasury local layout
   expect_match(txt, "raw U.S. Treasury rates")
 })
 
+test_that("Treasury default sync years backfill once then continue from latest local year", {
+  local_dir <- withr::local_tempdir()
+
+  select_years <- getFromNamespace(".treasury_sync_years", "investdatar")
+  expect_null(select_years("par_yield_curve", local_path = local_dir))
+
+  local_dt <- data.table::data.table(
+    dataset = "par_yield_curve",
+    date = as.Date(c("2025-12-31", "2026-04-01")),
+    series_id = c("par_yield_curve_10year", "par_yield_curve_10year"),
+    tenor = c("10YEAR", "10YEAR"),
+    measure = c("yield", "yield"),
+    value = c(4.10, 4.20),
+    rate_type = c(NA_character_, NA_character_),
+    source_field = c("BC_10YEAR", "BC_10YEAR"),
+    maturity_date = as.Date(c(NA, NA)),
+    cusip = c(NA_character_, NA_character_)
+  )
+  saveRDS(local_dt, file.path(local_dir, "par_yield_curve.rds"))
+
+  expect_equal(select_years("par_yield_curve", local_path = local_dir), c(2026L))
+})
+
 test_that("sync_all_treasury_rates returns success and failure summary rows", {
   old_sync_local <- get("sync_local_treasury_rates", envir = asNamespace("investdatar"))
+  local_dir <- withr::local_tempdir()
   assignInNamespace(
     "sync_local_treasury_rates",
     function(dataset, years = NULL, local_path = NULL) {
@@ -100,10 +124,13 @@ test_that("sync_all_treasury_rates returns success and failure summary rows", {
 
   summary_dt <- investdatar::sync_all_treasury_rates(
     datasets = c("bill_rates", "real_long_term_rates"),
-    local_path = withr::local_tempdir()
+    local_path = local_dir
   )
 
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[dataset == "bill_rates", status][[1]], "success")
   expect_equal(summary_dt[dataset == "real_long_term_rates", status][[1]], "error")
+  run_log <- investdatar::get_latest_sync_run("treasury", local_path = local_dir)
+  expect_equal(run_log$source_id, "treasury")
+  expect_equal(nrow(run_log$summary), 2L)
 })

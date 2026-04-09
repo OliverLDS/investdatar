@@ -97,6 +97,7 @@ test_that("World Bank registry helpers add series and batch sync via mocked help
   expect_equal(sum(registry$indicator == "FP.CPI.TOTL.ZG"), 1L)
   expect_equal(out$country[[1]], "")
   expect_equal(out$main_group[[1]], "inflation")
+  local_dir <- withr::local_tempdir()
 
   summary_dt <- testthat::with_mocked_bindings(
     sync_local_wbstats_data = function(indicator, country, freq = "Y", local_path = NULL, ...) {
@@ -104,13 +105,16 @@ test_that("World Bank registry helpers add series and batch sync via mocked help
       if (indicator == "FP.CPI.TOTL.ZG") stop("download failed")
       list(updated = TRUE, n_rows = 20L, n_new_rows = 1L)
     },
-    investdatar::sync_all_wbstats_registry_data(registry = registry, local_path = withr::local_tempdir()),
+    investdatar::sync_all_wbstats_registry_data(registry = registry, local_path = local_dir),
     .package = "investdatar"
   )
 
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[indicator == "NY.GDP.MKTP.CD", status][[1]], "success")
   expect_equal(summary_dt[indicator == "FP.CPI.TOTL.ZG", status][[1]], "error")
+  run_log <- investdatar::get_latest_sync_run("wbstats", local_path = local_dir)
+  expect_equal(run_log$source_id, "wbstats")
+  expect_equal(nrow(run_log$summary), 2L)
 })
 
 test_that("iShare registry helpers add tickers and batch sync via mocked helpers", {
@@ -128,6 +132,7 @@ test_that("iShare registry helpers add tickers and batch sync via mocked helpers
   expect_equal(nrow(registry), 2L)
   expect_equal(sum(registry$ticker == "IAU"), 1L)
   expect_equal(out$type[[1]], "commodity")
+  local_dir <- withr::local_tempdir()
 
   summary_dt <- testthat::with_mocked_bindings(
     get_local_ishare_mega_data = function(local_path = NULL) data.table::data.table(Ticker = c("IVV", "IAU"), etf_href = c("u1", "u2")),
@@ -136,13 +141,16 @@ test_that("iShare registry helpers add tickers and batch sync via mocked helpers
       if (ticker == "IAU") stop("download failed")
       list(updated = TRUE, n_rows = 5L, n_new_rows = 1L)
     },
-    investdatar::sync_all_ishare_registry_data(registry = registry, local_path = withr::local_tempdir()),
+    investdatar::sync_all_ishare_registry_data(registry = registry, local_path = local_dir),
     .package = "investdatar"
   )
 
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[ticker == "IVV", status][[1]], "success")
   expect_equal(summary_dt[ticker == "IAU", status][[1]], "error")
+  run_log <- investdatar::get_latest_sync_run("ishare", local_path = local_dir)
+  expect_equal(run_log$source_id, "ishare")
+  expect_equal(nrow(run_log$summary), 2L)
 })
 
 test_that("iShare holdings registry sync returns success and failure summary", {
@@ -150,6 +158,7 @@ test_that("iShare holdings registry sync returns success and failure summary", {
     ticker = c("DYNF", "THRO", "IVV"),
     type = c("active", "active", "equity_core")
   )
+  local_dir <- withr::local_tempdir()
 
   summary_dt <- testthat::with_mocked_bindings(
     get_source_config = function(source, config = get_investdatar_config()) {
@@ -164,7 +173,7 @@ test_that("iShare holdings registry sync returns success and failure summary", {
       if (ticker == "THRO") stop("download failed")
       list(updated = TRUE, n_rows = 25L, n_new_rows = 25L)
     },
-    investdatar::sync_all_ishare_registry_holdings(registry = registry, local_path = withr::local_tempdir()),
+    investdatar::sync_all_ishare_registry_holdings(registry = registry, local_path = local_dir),
     .package = "investdatar"
   )
 
@@ -172,6 +181,9 @@ test_that("iShare holdings registry sync returns success and failure summary", {
   expect_equal(summary_dt$ticker, c("DYNF", "THRO"))
   expect_equal(summary_dt[ticker == "DYNF", status][[1]], "success")
   expect_equal(summary_dt[ticker == "THRO", status][[1]], "error")
+  run_log <- investdatar::get_latest_sync_run("ishare_holdings", local_path = local_dir)
+  expect_equal(run_log$source_id, "ishare_holdings")
+  expect_equal(nrow(run_log$summary), 2L)
 })
 
 test_that("Yahoo Finance registry sync returns success and failure summary", {

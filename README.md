@@ -232,6 +232,10 @@ You can run the shipped example with:
 Rscript inst/scripts/daily_sync.R
 ```
 
+The shipped daily sync script checks the latest batch run logs and skips
+sources that already ran on the same calendar day, so repeated invocations do
+not re-fetch the same batch unnecessarily.
+
 A second shipped script can be run after the sync to print recent RSS headlines
 in the terminal and request short AI summaries for newly updated FRED and Yahoo
 data:

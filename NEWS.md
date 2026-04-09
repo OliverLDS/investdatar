@@ -1,3 +1,13 @@
+# investdatar 0.1.3.8
+
+- Added batch run-log writing to the remaining registry and batch sync helpers
+  so scheduled sync scripts can consistently inspect the latest run state.
+- Updated the shipped `daily_sync.R` example to skip sources that already ran
+  on the same day, based on the latest batch sync log.
+- Updated Treasury default sync behavior so the first run backfills full
+  history, while later runs fetch only from the latest local year through the
+  current year.
+
 # investdatar 0.1.3.7
 
 - Added batch sync run logs plus `get_latest_sync_run()` so downstream scripts

@@ -711,6 +711,7 @@ sync_all_ishare_registry_data <- function(registry = get_ishare_registry(),
   if (is.null(source_utime)) {
     source_utime <- get_source_utime_ishare(check_online = FALSE)
   }
+  run_started_at <- Sys.time()
 
   summary_list <- lapply(seq_len(nrow(registry)), function(i) {
     ticker <- registry$ticker[[i]]
@@ -749,7 +750,16 @@ sync_all_ishare_registry_data <- function(registry = get_ishare_registry(),
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "ishare",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }
 
 #' Synchronize All iShares Holdings In The Registry
@@ -812,6 +822,7 @@ sync_all_ishare_registry_holdings <- function(registry = NULL,
   if (is.null(source_utime)) {
     source_utime <- get_source_utime_ishare(check_online = FALSE)
   }
+  run_started_at <- Sys.time()
 
   summary_list <- lapply(seq_len(nrow(registry)), function(i) {
     ticker <- registry$ticker[[i]]
@@ -850,5 +861,14 @@ sync_all_ishare_registry_holdings <- function(registry = NULL,
     )
   })
 
-  data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  .write_sync_run_log(
+    source_id = "ishare_holdings",
+    summary = summary_dt,
+    local_path = local_path,
+    params = list(tickers = tickers),
+    run_started_at = run_started_at,
+    run_finished_at = Sys.time()
+  )
+  summary_dt
 }

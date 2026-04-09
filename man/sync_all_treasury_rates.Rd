@@ -14,7 +14,10 @@ sync_all_treasury_rates(
 \item{datasets}{Optional dataset vector. If omitted, sync all supported
 Treasury rate datasets.}
 
-\item{years}{Optional year filter passed to \code{sync_local_treasury_rates()}.}
+\item{years}{Optional year filter passed to \code{sync_local_treasury_rates()}.
+When omitted, each dataset uses a full-history backfill only if no local
+file exists; otherwise it syncs from the latest local year through the
+current year.}
 
 \item{local_path}{Optional local storage path.}
 }
