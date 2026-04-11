@@ -160,3 +160,66 @@ sync_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
     source_utime = source_utime
   )
 }
+
+.normalize_binance_repair_windows <- function(windows) {
+  if (is.null(windows)) {
+    stop("windows must contain at least one start_time/end_time pair.")
+  }
+
+  if (data.table::is.data.table(windows) || is.data.frame(windows)) {
+    windows_dt <- data.table::as.data.table(windows)
+  } else if (is.list(windows)) {
+    windows_dt <- data.table::rbindlist(lapply(windows, data.table::as.data.table), use.names = TRUE, fill = TRUE)
+  } else {
+    stop("windows must be a data.frame/data.table or a list of start_time/end_time pairs.")
+  }
+
+  if (!all(c("start_time", "end_time") %in% names(windows_dt))) {
+    stop("windows must contain start_time and end_time columns.")
+  }
+  if (nrow(windows_dt) == 0L) {
+    stop("windows must contain at least one row.")
+  }
+
+  windows_dt[]
+}
+
+#' Repair Local Binance Kline Data From Multiple Windows
+#'
+#' Fetches all requested Binance kline windows in memory and writes the merged
+#' repair result to local storage with one `sync_local_data()` call.
+#'
+#' @param windows A `data.frame`/`data.table` with `start_time` and `end_time`
+#'   columns, or a list of objects containing those fields.
+#' @inheritParams sync_local_binance_klines
+#'
+#' @return A sync result list.
+#' @export
+repair_local_binance_klines_gaps <- function(symbol = "ETHUSDT", interval = "1m",
+                                             windows, limit = 1500L, tz = "UTC",
+                                             local_path = NULL) {
+  windows_dt <- .normalize_binance_repair_windows(windows)
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("crypto", subdir = "binance", create = TRUE)
+  }
+
+  batches <- lapply(seq_len(nrow(windows_dt)), function(i) {
+    get_source_data_binance_klines(
+      symbol = symbol,
+      interval = interval,
+      start_time = windows_dt$start_time[[i]],
+      end_time = windows_dt$end_time[[i]],
+      limit = limit,
+      tz = tz,
+      paginate = TRUE
+    )
+  })
+
+  sync_local_data_batches(
+    batches = batches,
+    local_file_path = file.path(local_path, .binance_local_filename(symbol, interval)),
+    key_cols = c("symbol", "interval", "datetime"),
+    order_cols = "datetime",
+    source_utime = infer_source_utime_from_frequency(interval, reference_time = Sys.time(), tz = tz)
+  )
+}

@@ -117,7 +117,7 @@ get_source_spec <- function(source) {
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
       capabilities = list(source_utime = TRUE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = TRUE),
-      functions = list(fetch = "get_source_data_okx_candle", fetch_history = "get_source_hist_data_okx_candle", sync = "sync_local_okx_candle", read_local = "get_local_okx_candle")
+      functions = list(fetch = "get_source_data_okx_candle", fetch_history = "get_source_hist_data_okx_candle", sync = "sync_local_okx_candle", repair = "repair_local_okx_candle_gaps", read_local = "get_local_okx_candle")
     ),
     binance = .new_source_spec(
       source_id = "binance",
@@ -126,7 +126,7 @@ get_source_spec <- function(source) {
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
       capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = TRUE),
-      functions = list(fetch = "get_source_data_binance_klines", sync = "sync_local_binance_klines", read_local = "get_local_binance_klines")
+      functions = list(fetch = "get_source_data_binance_klines", sync = "sync_local_binance_klines", repair = "repair_local_binance_klines_gaps", read_local = "get_local_binance_klines")
     )
   )
 

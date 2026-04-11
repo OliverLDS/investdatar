@@ -77,6 +77,43 @@ test_that("sync_local_okx_candle supports mocked latest and history fetches", {
   expect_equal(local_dt$datetime[[1]], as.POSIXct("2026-03-25 16:00:00", tz = "UTC"))
 })
 
+test_that("repair_local_okx_candle_gaps fetches multiple pages and writes once", {
+  local_dir <- withr::local_tempdir()
+  calls <- new.env(parent = emptyenv())
+  calls$before <- character()
+
+  res <- testthat::with_mocked_bindings(
+    get_source_hist_data_okx_candle = function(inst_id, bar, before = NULL, limit = 100L, config, tz = "UTC") {
+      calls$before <- c(calls$before, before)
+      data.table::data.table(
+        source = "okx",
+        symbol = inst_id,
+        interval = bar,
+        datetime = as.POSIXct(as.numeric(before), origin = "1970-01-01", tz = "UTC"),
+        date = as.Date(as.POSIXct(as.numeric(before), origin = "1970-01-01", tz = "UTC")),
+        open = 1,
+        high = 2,
+        low = 0.5,
+        close = 1.5,
+        volume = 10
+      )
+    },
+    investdatar::repair_local_okx_candle_gaps(
+      "BTC-USDT-SWAP",
+      "4H",
+      before = c("1770000000", "1770014400"),
+      config = list(),
+      local_path = local_dir
+    ),
+    .package = "investdatar"
+  )
+
+  local_dt <- investdatar::get_local_okx_candle("BTC-USDT-SWAP", "4H", local_path = local_dir)
+  expect_true(res$updated)
+  expect_equal(calls$before, c("1770000000", "1770014400"))
+  expect_equal(nrow(local_dt), 2L)
+})
+
 test_that("sync_local_binance_klines writes data under the binance local layout", {
   local_dir <- withr::local_tempdir()
 
@@ -104,6 +141,47 @@ test_that("sync_local_binance_klines writes data under the binance local layout"
   expect_true(res$updated)
   expect_equal(nrow(local_dt), 2L)
   expect_equal(local_dt$close, c(1.5, 2.5))
+})
+
+test_that("repair_local_binance_klines_gaps fetches multiple windows and writes once", {
+  local_dir <- withr::local_tempdir()
+  calls <- new.env(parent = emptyenv())
+  calls$start_time <- character()
+
+  windows <- data.table::data.table(
+    start_time = as.POSIXct(c("2026-03-26 00:00:00", "2026-03-26 00:02:00"), tz = "UTC"),
+    end_time = as.POSIXct(c("2026-03-26 00:01:00", "2026-03-26 00:03:00"), tz = "UTC")
+  )
+
+  res <- testthat::with_mocked_bindings(
+    get_source_data_binance_klines = function(symbol = "ETHUSDT", interval = "1m", start_time = NULL, end_time = NULL, limit = 1500L, tz = "UTC", paginate = TRUE) {
+      calls$start_time <- c(calls$start_time, format(as.POSIXct(start_time, tz = "UTC"), "%Y-%m-%d %H:%M:%S"))
+      data.table::data.table(
+        source = "binance",
+        symbol = symbol,
+        interval = interval,
+        datetime = as.POSIXct(start_time, tz = "UTC"),
+        date = as.Date(as.POSIXct(start_time, tz = "UTC")),
+        open = 1,
+        high = 2,
+        low = 0.5,
+        close = 1.5,
+        volume = 10
+      )
+    },
+    investdatar::repair_local_binance_klines_gaps(
+      "ETHUSDT",
+      "1m",
+      windows = windows,
+      local_path = local_dir
+    ),
+    .package = "investdatar"
+  )
+
+  local_dt <- investdatar::get_local_binance_klines("ETHUSDT", "1m", local_path = local_dir)
+  expect_true(res$updated)
+  expect_equal(calls$start_time, format(windows$start_time, "%Y-%m-%d %H:%M:%S"))
+  expect_equal(nrow(local_dt), 2L)
 })
 
 test_that("sync_local_ishare_holdings writes holdings snapshots under the ishare local layout", {

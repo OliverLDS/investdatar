@@ -154,6 +154,45 @@ sync_local_okx_candle <- function(inst_id, bar, config, local_path = NULL,
   )
 }
 
+#' Repair Local OKX Candle Data From Multiple History Pages
+#'
+#' Fetches multiple OKX historical candle pages in memory and writes the merged
+#' repair result to local storage with one `sync_local_data()` call.
+#'
+#' @param before Character/numeric vector of OKX history pagination cursors.
+#' @inheritParams sync_local_okx_candle
+#'
+#' @return A sync result list.
+#' @export
+repair_local_okx_candle_gaps <- function(inst_id, bar, before, config, local_path = NULL,
+                                         limit = 100L, tz = "UTC") {
+  if (missing(before) || is.null(before) || length(before) == 0L) {
+    stop("before must contain at least one OKX history pagination cursor.")
+  }
+  if (is.null(local_path)) {
+    local_path <- get_source_data_path("crypto", subdir = "okx", create = TRUE)
+  }
+
+  batches <- lapply(before, function(cursor) {
+    get_source_hist_data_okx_candle(
+      inst_id = inst_id,
+      bar = bar,
+      before = cursor,
+      limit = limit,
+      config = config,
+      tz = tz
+    )
+  })
+
+  sync_local_data_batches(
+    batches = batches,
+    local_file_path = file.path(local_path, sprintf("%s_%s.rds", inst_id, bar)),
+    key_cols = "datetime",
+    order_cols = "datetime",
+    source_utime = NULL
+  )
+}
+
 #' Detect Time Gaps In OKX Candle Data
 #'
 #' @param dt A candle `data.table`.

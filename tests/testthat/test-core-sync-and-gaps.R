@@ -43,6 +43,27 @@ test_that("sync_local_data refreshes existing keyed rows when source values chan
   expect_equal(nrow(local_dt), 3L)
 })
 
+test_that("sync_local_data_batches merges pages before one local sync", {
+  out_path <- file.path(withr::local_tempdir(), "series.rds")
+
+  batches <- list(
+    data.table::data.table(date = as.Date(c("2026-01-01", "2026-01-02")), value = c(1, 2)),
+    data.table::data.table(date = as.Date(c("2026-01-02", "2026-01-03")), value = c(2, 3))
+  )
+
+  res <- investdatar::sync_local_data_batches(
+    batches = batches,
+    local_file_path = out_path,
+    key_cols = "date",
+    order_cols = "date"
+  )
+  local_dt <- readRDS(out_path)
+
+  expect_true(res$updated)
+  expect_equal(res$n_rows, 3L)
+  expect_equal(local_dt$value, c(1, 2, 3))
+})
+
 test_that("detect_time_gaps works for fixed and calendar frequencies", {
   candle_dt <- data.table::data.table(
     datetime = as.POSIXct(c("2026-03-26 00:00:00", "2026-03-26 08:00:00"), tz = "UTC")

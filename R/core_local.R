@@ -276,6 +276,49 @@ sync_local_data <- function(new_data, local_file_path, key_cols, order_cols = ke
   )
 }
 
+#' Synchronize Local Data From In-Memory Batches
+#'
+#' Combines multiple freshly retrieved data batches in memory, de-duplicates
+#' them by `key_cols`, then calls `sync_local_data()` once. This is useful for
+#' gap repair workflows where calling `sync_local_data()` once per small page
+#' would repeatedly rewrite the same local `.rds` file.
+#'
+#' @param batches A list of `data.table`-compatible batches.
+#' @inheritParams sync_local_data
+#'
+#' @return A sync result list.
+#' @export
+sync_local_data_batches <- function(batches, local_file_path, key_cols, order_cols = key_cols,
+                                    source_utime = NULL, local_updated_at = Sys.time()) {
+  if (is.null(batches)) {
+    batches <- list()
+  }
+  if (!is.list(batches) || data.table::is.data.table(batches) || is.data.frame(batches)) {
+    batches <- list(batches)
+  }
+
+  batch_dts <- lapply(batches, .as_data_table)
+  batch_dts <- Filter(function(x) !is.null(x) && nrow(x) > 0L, batch_dts)
+  if (length(batch_dts) == 0L) {
+    combined_dt <- data.table::data.table()
+  } else {
+    combined_dt <- data.table::rbindlist(batch_dts, use.names = TRUE, fill = TRUE)
+    combined_dt <- unique(combined_dt, by = key_cols)
+    if (!is.null(order_cols) && all(order_cols %in% names(combined_dt))) {
+      data.table::setorderv(combined_dt, order_cols)
+    }
+  }
+
+  sync_local_data(
+    new_data = combined_dt,
+    local_file_path = local_file_path,
+    key_cols = key_cols,
+    order_cols = order_cols,
+    source_utime = source_utime,
+    local_updated_at = local_updated_at
+  )
+}
+
 .parse_candle_frequency <- function(tag) {
   m <- regexec("^([0-9]+)([smhdw])$", tag, ignore.case = TRUE)
   parts <- regmatches(tag, m)[[1]]

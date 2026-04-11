@@ -1,3 +1,13 @@
+# investdatar 0.1.3.9
+
+- Added `sync_local_data_batches()` so repair workflows can combine multiple
+  fetched pages or windows in memory and write local `.rds` storage once.
+- Added OKX and Binance candle repair helpers that fetch multiple missing
+  pages or windows before performing a single local upsert.
+- Updated source specs and README documentation for candle repair helpers.
+- Refined shipped scheduled-sync examples with a cadence-aware `daily_sync.R`
+  and a standalone `check_sync_freshness.R` entrypoint for shell workflows.
+
 # investdatar 0.1.3.8
 
 - Added batch run-log writing to the remaining registry and batch sync helpers

@@ -176,6 +176,12 @@ Current local sync helpers include:
 - `sync_local_binance_klines()`
 - `sync_local_quantmod_OHLC()`
 
+For large candle repair workflows, prefer batch repair helpers that fetch all
+missing pages or windows in memory and write the local `.rds` file once:
+
+- `repair_local_okx_candle_gaps()`
+- `repair_local_binance_klines_gaps()`
+
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
 `YahooFinance.registry_file` and synchronizes each one via `quantmod`.
@@ -203,27 +209,16 @@ RSS feed registry batch sync is available through
 table.
 
 For scheduled local maintenance, a runnable example is shipped at
-`inst/scripts/daily_sync.R`. It uses a daily batch plus slower weekly and
-monthly syncs:
+`inst/scripts/daily_sync.R`. It uses cadence-aware batch syncs:
 
 ```r
-sync_safe <- function(expr) {
-  try(expr, silent = TRUE)
-}
-
-sync_safe(investdatar::sync_all_ishare_registry_holdings())
-sync_safe(investdatar::sync_all_rss_registry_data())
-sync_safe(investdatar::sync_all_treasury_rates())
-sync_safe(investdatar::sync_all_yahoofinance_registry_data())
-
-if (format(Sys.Date(), "%u") == "1") {
-  sync_safe(investdatar::sync_all_fred_registry_data())
-  sync_safe(investdatar::sync_all_ishare_registry_data())
-}
-
-if (format(Sys.Date(), "%d") == "01") {
-  sync_safe(investdatar::sync_all_wbstats_registry_data())
-}
+sync_if_stale("ishare_holdings", get_source_data_path("ishare", create = TRUE), "daily", sync_all_ishare_registry_holdings())
+sync_if_stale("rss", get_source_data_path("rss", create = TRUE), "daily", sync_all_rss_registry_data())
+sync_if_stale("treasury", get_source_data_path("treasury", create = TRUE), "daily", sync_all_treasury_rates())
+sync_if_stale("yahoofinance", get_source_data_path("yahoofinance", create = TRUE), "daily", sync_all_yahoofinance_registry_data())
+sync_if_stale("fred", get_source_data_path("fred", create = TRUE), "weekly", sync_all_fred_registry_data())
+sync_if_stale("ishare", get_source_data_path("ishare", create = TRUE), "weekly", sync_all_ishare_registry_data())
+sync_if_stale("wbstats", get_source_data_path("wbstats", create = TRUE), "monthly", sync_all_wbstats_registry_data())
 ```
 
 You can run the shipped example with:
@@ -233,8 +228,34 @@ Rscript inst/scripts/daily_sync.R
 ```
 
 The shipped daily sync script checks the latest batch run logs and skips
-sources that already ran on the same calendar day, so repeated invocations do
-not re-fetch the same batch unnecessarily.
+sources that already ran in the current expected cadence window:
+
+- daily: `ishare_holdings`, `rss`, `treasury`, `yahoofinance`
+- weekly: `fred`, `ishare`
+- monthly: `wbstats`
+
+This means weekly and monthly providers will still sync when stale even if the
+script is not run every day.
+
+A companion shell example is also shipped at:
+
+```sh
+zsh inst/scripts/check_sync_freshness.sh
+```
+
+The underlying R entrypoint is also available directly, which is often easier
+to call from other shell scripts:
+
+```sh
+Rscript inst/scripts/check_sync_freshness.R
+```
+
+It exits with status `1` and prints stale-provider messages when a provider's
+latest batch sync log is behind its expected cadence:
+
+- daily: `ishare_holdings`, `rss`, `treasury`, `yahoofinance`
+- weekly: `fred`, `ishare`
+- monthly: `wbstats`
 
 A second shipped script can be run after the sync to print recent RSS headlines
 in the terminal and request short AI summaries for newly updated FRED and Yahoo
