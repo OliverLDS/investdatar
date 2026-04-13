@@ -1,3 +1,9 @@
+# Fetch JSON from a FRED API URL.
+.fetch_fred_json <- function(url) {
+  res <- curl::curl_fetch_memory(url)
+  jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+}
+
 #' Get FRED Series Data
 #'
 #' Download a FRED series and return dates and numeric values.
@@ -15,16 +21,37 @@ get_source_data_fred <- function(series_id, config = NULL) {
   url <- sprintf("%s/observations?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
   
   # data <- jsonlite::fromJSON(url) curl is more stable sometimes
-  res <- curl::curl_fetch_memory(url)
-  data <- jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+  data <- .fetch_fred_json(url)
+  observations <- data$observations
+
+  if (is.null(observations) || nrow(data.table::as.data.table(observations)) == 0L) {
+    metadata <- tryCatch(get_source_metadata_fred(series_id, config = config), error = function(e) NULL)
+    if (!is.null(metadata) && !is.null(metadata$start) && !is.null(metadata$end) && nzchar(metadata$start) && nzchar(metadata$end)) {
+      stop(
+        "FRED observations endpoint returned zero rows for available series: ",
+        series_id,
+        " (metadata observation range ",
+        metadata$start,
+        " to ",
+        metadata$end,
+        ").",
+        call. = FALSE
+      )
+    }
+
+    registry <- tryCatch(get_fred_registry(), error = function(e) NULL)
+    if (!is.null(registry) && "series_id" %in% names(registry) && series_id %in% registry$series_id) {
+      stop("FRED observations endpoint returned zero rows for registered series: ", series_id, call. = FALSE)
+    }
+  }
   
   # contains "." in early GDP
-  raw_values <- data$observations$value
+  raw_values <- observations$value
   raw_values[raw_values == "."] <- NA_character_ # because the returned value is string
   numeric_values <- as.numeric(raw_values)
   
   out <- data.table::data.table(
-    date = as.Date(data$observations$date),
+    date = as.Date(observations$date),
     value = numeric_values
   )
   data.table::setorder(out, date)
@@ -52,8 +79,7 @@ get_source_utime_fred <- function(series_id, config = NULL, from_server = FALSE,
     
     url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
     # data <- jsonlite::fromJSON(url)
-    res <- curl::curl_fetch_memory(url)
-    data <- jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+    data <- .fetch_fred_json(url)
     
     update_time_str <- data$seriess$last_updated # we suppose it is central time
     out <- as.POSIXct(update_time_str, format = "%Y-%m-%d %H:%M:%S", tz = tz)
@@ -116,8 +142,7 @@ get_source_metadata_fred <- function(series_id, config = NULL) {
   mode <- config$mode
   
   url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
-  res <- curl::curl_fetch_memory(url)
-  data <- jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+  data <- .fetch_fred_json(url)
   
   res <- data$seriess
   list(

@@ -1,3 +1,11 @@
+# investdatar 0.1.3.10
+
+- Hardened FRED source fetches so transient empty observation responses for
+  available or registered series raise an error instead of writing empty local
+  `.rds` files.
+- Added a regression test covering an available FRED series with an empty
+  observations payload.
+
 # investdatar 0.1.3.9
 
 - Added `sync_local_data_batches()` so repair workflows can combine multiple

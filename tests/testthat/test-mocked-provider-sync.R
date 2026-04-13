@@ -28,6 +28,32 @@ test_that("sync_local_fred_data uses mocked provider functions", {
   expect_equal(local_meta$source_updated_at, mocked_utime)
 })
 
+test_that("get_source_data_fred errors when available series returns empty observations", {
+  expect_error(
+    testthat::with_mocked_bindings(
+      .get_api_config = function(source, config = NULL) {
+        list(api_key = "key", url = "https://api.stlouisfed.org/fred/series", mode = "json")
+      },
+      .fetch_fred_json = function(url) {
+        list(observations = data.table::data.table())
+      },
+      get_source_metadata_fred = function(series_id, config = NULL) {
+        list(
+          title = "Available test series",
+          start = "1990-04-01",
+          end = "2026-01-01",
+          freq = "Quarterly",
+          units = "Percent",
+          season = "Not Seasonally Adjusted"
+        )
+      },
+      investdatar::get_source_data_fred("SUBLPDCILTLNQ"),
+      .package = "investdatar"
+    ),
+    "zero rows for available series"
+  )
+})
+
 test_that("sync_local_okx_candle supports mocked latest and history fetches", {
   local_dir <- withr::local_tempdir()
 
