@@ -7,7 +7,7 @@
 sync_local_okx_candle(
   inst_id,
   bar,
-  config,
+  config = NULL,
   local_path = NULL,
   mode = c("latest", "history"),
   before = NULL,
@@ -20,7 +20,9 @@ sync_local_okx_candle(
 
 \item{bar}{Candle interval.}
 
-\item{config}{OKX API config.}
+\item{config}{Optional OKX API config. If omitted, defaults from the
+package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /
+\code{OKX_PASSPHRASE} environment variables are used.}
 
 \item{local_path}{Optional OKX storage path.}
 

@@ -72,12 +72,15 @@ get_source_utime_okx_candle <- function(bar, tz = "UTC") {
 #' @param inst_id Instrument identifier.
 #' @param bar Candle interval.
 #' @param limit Integer page size.
-#' @param config OKX API config.
+#' @param config Optional OKX API config. If omitted, defaults from the
+#'   package config and `OKX_API_KEY` / `OKX_SECRET_KEY` /
+#'   `OKX_PASSPHRASE` environment variables are used.
 #' @param tz Output time zone.
 #'
 #' @return `data.table` or `NULL`.
 #' @export
-get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config, tz = "UTC") {
+get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config = NULL, tz = "UTC") {
+  config <- .get_api_config("okx", config = config)
   .require_suggested_package("okxr", "to retrieve OKX candles.")
   dt <- okxr::get_market_candles(inst_id, bar, limit = limit, config = config, tz = tz)
   .normalize_okx_candles(dt, inst_id = inst_id, bar = bar)
@@ -89,12 +92,15 @@ get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config, tz = 
 #' @param bar Candle interval.
 #' @param before Optional pagination cursor.
 #' @param limit Integer page size.
-#' @param config OKX API config.
+#' @param config Optional OKX API config. If omitted, defaults from the
+#'   package config and `OKX_API_KEY` / `OKX_SECRET_KEY` /
+#'   `OKX_PASSPHRASE` environment variables are used.
 #' @param tz Output time zone.
 #'
 #' @return `data.table` or `NULL`.
 #' @export
-get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit = 100L, config, tz = "UTC") {
+get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit = 100L, config = NULL, tz = "UTC") {
+  config <- .get_api_config("okx", config = config)
   .require_suggested_package("okxr", "to retrieve OKX historical candles.")
   dt <- okxr::get_market_history_candles(inst_id, bar, before = before, limit = limit, config = config, tz = tz)
   .normalize_okx_candles(dt, inst_id = inst_id, bar = bar)
@@ -119,7 +125,9 @@ get_local_okx_candle <- function(inst_id, bar, local_path = NULL) {
 #'
 #' @param inst_id Instrument identifier.
 #' @param bar Candle interval.
-#' @param config OKX API config.
+#' @param config Optional OKX API config. If omitted, defaults from the
+#'   package config and `OKX_API_KEY` / `OKX_SECRET_KEY` /
+#'   `OKX_PASSPHRASE` environment variables are used.
 #' @param local_path Optional OKX storage path.
 #' @param mode Either `"latest"` or `"history"`.
 #' @param before Optional history cursor.
@@ -128,10 +136,11 @@ get_local_okx_candle <- function(inst_id, bar, local_path = NULL) {
 #'
 #' @return A sync result list.
 #' @export
-sync_local_okx_candle <- function(inst_id, bar, config, local_path = NULL,
+sync_local_okx_candle <- function(inst_id, bar, config = NULL, local_path = NULL,
                                   mode = c("latest", "history"), before = NULL,
                                   limit = 100L, tz = "UTC") {
   mode <- match.arg(mode)
+  config <- .get_api_config("okx", config = config)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "okx", create = TRUE)
   }
@@ -164,11 +173,12 @@ sync_local_okx_candle <- function(inst_id, bar, config, local_path = NULL,
 #'
 #' @return A sync result list.
 #' @export
-repair_local_okx_candle_gaps <- function(inst_id, bar, before, config, local_path = NULL,
+repair_local_okx_candle_gaps <- function(inst_id, bar, before, config = NULL, local_path = NULL,
                                          limit = 100L, tz = "UTC") {
   if (missing(before) || is.null(before) || length(before) == 0L) {
     stop("before must contain at least one OKX history pagination cursor.")
   }
+  config <- .get_api_config("okx", config = config)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "okx", create = TRUE)
   }

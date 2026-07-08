@@ -49,6 +49,9 @@ ALPHAVANTAGE_API_KEY=your_alphavantage_key
 
 The YAML file is intended for local storage paths and source-specific metadata.
 Some providers require API keys, while others such as Yahoo Finance do not.
+OKX candle sync also falls back to package defaults when no config is passed;
+set `OKX_API_KEY`, `OKX_SECRET_KEY`, and `OKX_PASSPHRASE` in `.Renviron` if
+you want authenticated OKX access.
 
 Minimal example:
 

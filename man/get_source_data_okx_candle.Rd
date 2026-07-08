@@ -4,7 +4,13 @@
 \alias{get_source_data_okx_candle}
 \title{Get Latest OKX Candle Data}
 \usage{
-get_source_data_okx_candle(inst_id, bar, limit = 100L, config, tz = "UTC")
+get_source_data_okx_candle(
+  inst_id,
+  bar,
+  limit = 100L,
+  config = NULL,
+  tz = "UTC"
+)
 }
 \arguments{
 \item{inst_id}{Instrument identifier.}
@@ -13,7 +19,9 @@ get_source_data_okx_candle(inst_id, bar, limit = 100L, config, tz = "UTC")
 
 \item{limit}{Integer page size.}
 
-\item{config}{OKX API config.}
+\item{config}{Optional OKX API config. If omitted, defaults from the
+package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /
+\code{OKX_PASSPHRASE} environment variables are used.}
 
 \item{tz}{Output time zone.}
 }

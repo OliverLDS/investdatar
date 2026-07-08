@@ -8,7 +8,7 @@ repair_local_okx_candle_gaps(
   inst_id,
   bar,
   before,
-  config,
+  config = NULL,
   local_path = NULL,
   limit = 100L,
   tz = "UTC"
@@ -21,7 +21,9 @@ repair_local_okx_candle_gaps(
 
 \item{before}{Character/numeric vector of OKX history pagination cursors.}
 
-\item{config}{OKX API config.}
+\item{config}{Optional OKX API config. If omitted, defaults from the
+package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /
+\code{OKX_PASSPHRASE} environment variables are used.}
 
 \item{local_path}{Optional OKX storage path.}
 

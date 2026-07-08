@@ -114,6 +114,11 @@
       url = "https://api.stlouisfed.org/fred/series",
       mode = "json"
     ),
+    okx = list(
+      api_key = Sys.getenv("OKX_API_KEY", unset = ""),
+      secret_key = Sys.getenv("OKX_SECRET_KEY", unset = ""),
+      passphrase = Sys.getenv("OKX_PASSPHRASE", unset = "")
+    ),
     alphavantage = list(
       api_key = Sys.getenv("ALPHAVANTAGE_API_KEY", unset = ""),
       url = "https://www.alphavantage.co/query"

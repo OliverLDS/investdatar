@@ -15,6 +15,10 @@ RSS:
 
 Crypto:
   data_path: ./data/crypto
+  # Optional OKX auth fields for okxr-backed calls:
+  # api_key: your_okx_key
+  # secret_key: your_okx_secret
+  # passphrase: your_okx_passphrase
 
 iShare:
   data_path: ./data/ishare

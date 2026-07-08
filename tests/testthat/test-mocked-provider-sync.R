@@ -103,6 +103,44 @@ test_that("sync_local_okx_candle supports mocked latest and history fetches", {
   expect_equal(local_dt$datetime[[1]], as.POSIXct("2026-03-25 16:00:00", tz = "UTC"))
 })
 
+test_that("sync_local_okx_candle uses default okx config when config is omitted", {
+  local_dir <- withr::local_tempdir()
+  fetched_cfg <- list(api_key = "okx-key", secret_key = "okx-secret", passphrase = "okx-pass")
+  mocked_dt <- data.table::data.table(
+    source = "okx",
+    symbol = "BTC-USDT-SWAP",
+    interval = "4H",
+    datetime = as.POSIXct("2026-03-26 00:00:00", tz = "UTC"),
+    date = as.Date("2026-03-26"),
+    open = 1,
+    high = 2,
+    low = 0.5,
+    close = 1.5,
+    volume = 10
+  )
+
+  res <- testthat::with_mocked_bindings(
+    .get_api_config = function(source, config = NULL) {
+      if (identical(source, "okx")) {
+        fetched_cfg
+      } else {
+        list()
+      }
+    },
+    get_source_data_okx_candle = function(inst_id, bar, limit = 100L, config = NULL, tz = "UTC") {
+      expect_identical(config, fetched_cfg)
+      mocked_dt
+    },
+    get_source_utime_okx_candle = function(bar, tz = "UTC") as.POSIXct("2026-03-26 04:00:00", tz = "UTC"),
+    investdatar::sync_local_okx_candle("BTC-USDT-SWAP", "4H", local_path = local_dir, mode = "latest"),
+    .package = "investdatar"
+  )
+
+  local_dt <- investdatar::get_local_okx_candle("BTC-USDT-SWAP", "4H", local_path = local_dir)
+  expect_true(res$updated)
+  expect_equal(nrow(local_dt), 1L)
+})
+
 test_that("repair_local_okx_candle_gaps fetches multiple pages and writes once", {
   local_dir <- withr::local_tempdir()
   calls <- new.env(parent = emptyenv())

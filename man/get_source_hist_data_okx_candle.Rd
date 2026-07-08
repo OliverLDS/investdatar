@@ -9,7 +9,7 @@ get_source_hist_data_okx_candle(
   bar,
   before = NULL,
   limit = 100L,
-  config,
+  config = NULL,
   tz = "UTC"
 )
 }
@@ -22,7 +22,9 @@ get_source_hist_data_okx_candle(
 
 \item{limit}{Integer page size.}
 
-\item{config}{OKX API config.}
+\item{config}{Optional OKX API config. If omitted, defaults from the
+package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /
+\code{OKX_PASSPHRASE} environment variables are used.}
 
 \item{tz}{Output time zone.}
 }
