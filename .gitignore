@@ -5,6 +5,3 @@ investdatar.Rcheck/
 .Rcheck/
 ..Rcheck/
 *.tar.gz
-scripts/*
-!scripts/install-local-lib.sh
-!scripts/verify-local.sh

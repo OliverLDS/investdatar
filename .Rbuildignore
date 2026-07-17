@@ -11,3 +11,8 @@
 ^R/\.Rhistory$
 ^investdatar_.*\.tar\.gz$
 ^reference_codes$
+^scripts/sync_.*[.]R$
+^scripts/daily_sync[.]R$
+^scripts/check_sync_freshness[.]R$
+^scripts/check_sync_freshness[.]sh$
+^scripts/report_cached_data_shape[.]R$
