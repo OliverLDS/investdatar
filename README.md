@@ -211,68 +211,6 @@ RSS feed registry batch sync is available through
 `RSS.registry_file` and synchronizes each configured feed into a local `.rds`
 table.
 
-For scheduled local maintenance, a runnable example is shipped at
-`inst/scripts/daily_sync.R`. It uses cadence-aware batch syncs:
-
-```r
-sync_if_stale("ishare_holdings", get_source_data_path("ishare", create = TRUE), "daily", sync_all_ishare_registry_holdings())
-sync_if_stale("rss", get_source_data_path("rss", create = TRUE), "daily", sync_all_rss_registry_data())
-sync_if_stale("treasury", get_source_data_path("treasury", create = TRUE), "daily", sync_all_treasury_rates())
-sync_if_stale("yahoofinance", get_source_data_path("yahoofinance", create = TRUE), "daily", sync_all_yahoofinance_registry_data())
-sync_if_stale("fred", get_source_data_path("fred", create = TRUE), "weekly", sync_all_fred_registry_data())
-sync_if_stale("ishare", get_source_data_path("ishare", create = TRUE), "weekly", sync_all_ishare_registry_data())
-sync_if_stale("wbstats", get_source_data_path("wbstats", create = TRUE), "monthly", sync_all_wbstats_registry_data())
-```
-
-You can run the shipped example with:
-
-```sh
-Rscript inst/scripts/daily_sync.R
-```
-
-The shipped daily sync script checks the latest batch run logs and skips
-sources that already ran in the current expected cadence window:
-
-- daily: `ishare_holdings`, `rss`, `treasury`, `yahoofinance`
-- weekly: `fred`, `ishare`
-- monthly: `wbstats`
-
-This means weekly and monthly providers will still sync when stale even if the
-script is not run every day.
-
-A companion shell example is also shipped at:
-
-```sh
-zsh inst/scripts/check_sync_freshness.sh
-```
-
-The underlying R entrypoint is also available directly, which is often easier
-to call from other shell scripts:
-
-```sh
-Rscript inst/scripts/check_sync_freshness.R
-```
-
-It exits with status `1` and prints stale-provider messages when a provider's
-latest batch sync log is behind its expected cadence:
-
-- daily: `ishare_holdings`, `rss`, `treasury`, `yahoofinance`
-- weekly: `fred`, `ishare`
-- monthly: `wbstats`
-
-A second shipped script can be run after the sync to print recent RSS headlines
-in the terminal and request short AI summaries for newly updated FRED and Yahoo
-data:
-
-```sh
-Rscript inst/scripts/report_recent_sync.R
-```
-
-The reporting script reads the latest batch sync logs to detect which datasets
-were actually refreshed and reports newly inserted RSS items from that run. The
-AI summary step is optional and requires the `inferencer` package plus your
-OpenRouter credentials in the local environment.
-
 The shipped example registry includes Atlanta Fed, SEC, Federal Reserve, and
 CFTC seeds:
 
