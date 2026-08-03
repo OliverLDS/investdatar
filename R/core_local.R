@@ -18,8 +18,80 @@
 
 .safe_save_rds <- function(object, path) {
   dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
-  saveRDS(object, path)
+  temp_path <- tempfile(
+    pattern = paste0(".", basename(path), "."),
+    tmpdir = dirname(path)
+  )
+  on.exit(unlink(temp_path), add = TRUE)
+
+  saveRDS(object, temp_path)
+  if (!file.rename(temp_path, path)) {
+    if (!file.exists(path)) {
+      stop("Could not move temporary RDS file into place: ", path, call. = FALSE)
+    }
+
+    backup_path <- tempfile(
+      pattern = paste0(".", basename(path), ".backup."),
+      tmpdir = dirname(path)
+    )
+    if (!file.rename(path, backup_path)) {
+      stop("Could not preserve existing RDS file before replacement: ", path, call. = FALSE)
+    }
+    if (!file.rename(temp_path, path)) {
+      restored <- file.rename(backup_path, path)
+      stop(
+        "Could not replace local RDS file: ", path,
+        if (!restored) paste0(". Existing data remains at ", backup_path) else "",
+        call. = FALSE
+      )
+    }
+    unlink(backup_path)
+  }
   invisible(path)
+}
+
+.empty_posixct <- function(n = 0L) {
+  as.POSIXct(rep(NA_real_, n), origin = "1970-01-01", tz = "UTC")
+}
+
+.normalize_sync_summary <- function(summary, source_id, run_started_at,
+                                    run_finished_at = Sys.time()) {
+  dt <- data.table::copy(.as_data_table(summary))
+  if (is.null(dt)) {
+    dt <- data.table::data.table()
+  }
+  n <- nrow(dt)
+
+  defaults <- list(
+    source_id = rep(as.character(source_id), n),
+    status = rep(NA_character_, n),
+    updated = rep(FALSE, n),
+    n_rows = rep(NA_integer_, n),
+    n_new_rows = rep(NA_integer_, n),
+    source_utime = .empty_posixct(n),
+    local_utime = .empty_posixct(n),
+    error_class = rep(NA_character_, n),
+    error_message = rep(NA_character_, n),
+    http_status = rep(NA_integer_, n),
+    started_at = rep(as.POSIXct(run_started_at, tz = "UTC"), n),
+    finished_at = rep(as.POSIXct(run_finished_at, tz = "UTC"), n),
+    elapsed_seconds = rep(as.numeric(difftime(run_finished_at, run_started_at, units = "secs")), n)
+  )
+
+  for (nm in names(defaults)) {
+    if (!nm %in% names(dt)) {
+      dt[, (nm) := defaults[[nm]]]
+    }
+  }
+
+  if ("error" %in% names(dt)) {
+    dt[is.na(error_message) & !is.na(error), error_message := as.character(error)]
+  }
+  dt[!is.na(status) & status == "error" & is.na(error_class), error_class := "sync_error"]
+
+  standard_cols <- names(defaults)
+  data.table::setcolorder(dt, c(setdiff(names(dt), standard_cols), standard_cols))
+  dt[]
 }
 
 .meta_file_path <- function(local_file_path) {
@@ -82,6 +154,33 @@ get_latest_sync_run <- function(source_id, local_path) {
   }
 
   .safe_read_rds(sort(paths)[[length(paths)]], default = NULL)
+}
+
+#' Check Whether A Batch Sync Run Succeeded
+#'
+#' A run is successful when its stored summary contains no row with an error
+#' status or non-empty error message. Empty summaries are successful because an
+#' intentionally empty registry has no failed work.
+#'
+#' @param run A run-log object returned by `get_latest_sync_run()`.
+#'
+#' @return Logical scalar.
+#' @export
+is_sync_run_successful <- function(run) {
+  if (is.null(run) || is.null(run$summary)) return(FALSE)
+  summary <- tryCatch(data.table::as.data.table(run$summary), error = function(e) NULL)
+  if (is.null(summary)) return(FALSE)
+  if (nrow(summary) == 0L) return(TRUE)
+
+  if ("status" %in% names(summary)) {
+    status <- tolower(trimws(as.character(summary$status)))
+    if (any(status == "error", na.rm = TRUE)) return(FALSE)
+  }
+  for (nm in intersect(c("error", "error_message"), names(summary))) {
+    value <- trimws(as.character(summary[[nm]]))
+    if (any(!is.na(value) & nzchar(value))) return(FALSE)
+  }
+  TRUE
 }
 
 #' Get Local Data Metadata

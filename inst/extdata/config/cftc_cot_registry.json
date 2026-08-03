@@ -1,0 +1,20 @@
+[
+  {
+    "report_id": "tff_futures_only",
+    "report_type": "tff",
+    "report_variant": "futures_only",
+    "dataset_id": "gpe5-46if",
+    "market_codes": null,
+    "start": "2006-06-13",
+    "active": true
+  },
+  {
+    "report_id": "tff_combined",
+    "report_type": "tff",
+    "report_variant": "combined",
+    "dataset_id": "yw9f-hn96",
+    "market_codes": null,
+    "start": "2006-06-13",
+    "active": true
+  }
+]

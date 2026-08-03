@@ -750,14 +750,20 @@ sync_all_ishare_registry_data <- function(registry = get_ishare_registry(),
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "ishare",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "ishare",
     summary = summary_dt,
     local_path = local_path,
     params = list(),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }
@@ -861,14 +867,20 @@ sync_all_ishare_registry_holdings <- function(registry = NULL,
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "ishare_holdings",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "ishare_holdings",
     summary = summary_dt,
     local_path = local_path,
     params = list(tickers = tickers),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }

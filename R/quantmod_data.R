@@ -261,7 +261,13 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "yahoofinance",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "yahoofinance",
     summary = summary_dt,
@@ -274,7 +280,7 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
       initial_lookback_days = initial_lookback_days
     ),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }

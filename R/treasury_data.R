@@ -516,14 +516,20 @@ sync_all_treasury_rates <- function(datasets = names(.treasury_dataset_map()), y
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "treasury",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "treasury",
     summary = summary_dt,
     local_path = local_path,
     params = list(years = if (is.null(years)) NULL else as.integer(years)),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }

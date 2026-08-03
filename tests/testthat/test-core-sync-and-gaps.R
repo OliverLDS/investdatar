@@ -21,6 +21,61 @@ test_that("sync_local_data deduplicates and writes sidecar metadata", {
   expect_equal(investdatar::get_local_data_meta(out_path)$n_rows, 3L)
 })
 
+test_that("local RDS writes replace existing files without leaving temporary files", {
+  out_dir <- withr::local_tempdir()
+  out_path <- file.path(out_dir, "atomic.rds")
+
+  getFromNamespace(".safe_save_rds", "investdatar")(list(value = 1L), out_path)
+  getFromNamespace(".safe_save_rds", "investdatar")(list(value = 2L), out_path)
+
+  expect_equal(readRDS(out_path)$value, 2L)
+  expect_equal(list.files(out_dir, pattern = "^\\.atomic\\.rds\\."), character())
+})
+
+test_that("batch sync summaries receive the common contract additively", {
+  started_at <- as.POSIXct("2026-08-03 01:00:00", tz = "UTC")
+  finished_at <- as.POSIXct("2026-08-03 01:00:02", tz = "UTC")
+  input <- data.table::data.table(
+    series_id = c("GOOD", "BAD"),
+    status = c("success", "error"),
+    updated = c(TRUE, FALSE),
+    error = c(NA_character_, "failed")
+  )
+
+  out <- getFromNamespace(".normalize_sync_summary", "investdatar")(
+    input,
+    source_id = "fred",
+    run_started_at = started_at,
+    run_finished_at = finished_at
+  )
+
+  expect_true(all(c(
+    "source_id", "source_utime", "local_utime", "error_class",
+    "error_message", "http_status", "started_at", "finished_at",
+    "elapsed_seconds"
+  ) %in% names(out)))
+  expect_equal(out$series_id, input$series_id)
+  expect_equal(out$source_id, c("fred", "fred"))
+  expect_equal(out[series_id == "BAD", error_message][[1]], "failed")
+  expect_equal(out[series_id == "BAD", error_class][[1]], "sync_error")
+  expect_equal(out$elapsed_seconds, c(2, 2))
+})
+
+test_that("batch run success reflects row-level errors", {
+  successful <- list(summary = data.table::data.table(status = "success", error = NA_character_))
+  partial_failure <- list(summary = data.table::data.table(
+    status = c("success", "error"), error = c(NA_character_, "upstream failed")
+  ))
+  message_failure <- list(summary = data.table::data.table(status = "success", error_message = "invalid payload"))
+  empty_registry <- list(summary = data.table::data.table())
+
+  expect_true(investdatar::is_sync_run_successful(successful))
+  expect_false(investdatar::is_sync_run_successful(partial_failure))
+  expect_false(investdatar::is_sync_run_successful(message_failure))
+  expect_true(investdatar::is_sync_run_successful(empty_registry))
+  expect_false(investdatar::is_sync_run_successful(NULL))
+})
+
 test_that("sync_local_data refreshes existing keyed rows when source values change", {
   out_path <- file.path(withr::local_tempdir(), "series.rds")
 

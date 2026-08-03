@@ -1,0 +1,24 @@
+[
+  {
+    "dataset_id": "debt_to_penny",
+    "endpoint": "v2/accounting/od/debt_to_penny",
+    "date_col": "record_date",
+    "key_cols": ["record_date"],
+    "fields": null,
+    "frequency": "daily",
+    "start": "1993-04-01",
+    "label": "Debt to the Penny",
+    "active": true
+  },
+  {
+    "dataset_id": "operating_cash_balance",
+    "endpoint": "v1/accounting/dts/operating_cash_balance",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "account_type", "sub_table_name", "src_line_nbr"],
+    "fields": null,
+    "frequency": "daily",
+    "start": "2005-10-03",
+    "label": "Daily Treasury Statement Operating Cash Balance",
+    "active": true
+  }
+]

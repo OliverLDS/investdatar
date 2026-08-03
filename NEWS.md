@@ -1,3 +1,19 @@
+# investdatar 0.1.4
+
+- Added a shared HTTP layer with retry, timeout, user-agent, structured error,
+  and atomic local-write hardening, plus a common additive batch-summary contract.
+- Made scheduled freshness checks success-aware so partial batch failures remain
+  stale and are retried instead of being skipped solely because a run log exists.
+- Added registry-driven CFTC Traders in Financial Futures, Treasury Fiscal Data,
+  EIA physical energy, SEC submissions and Company Facts, and multi-provider
+  SDMX modules with local readers, incremental upserts, run logs, and descriptions.
+- Added historical Binance/OKX derivatives synchronization for BTC and ETH
+  funding rates and Binance open interest.
+- Expanded provider tests, source specs, example configuration, scheduled sync
+  nodes, and package-level documentation for the new modules.
+- Optimized SDMX and OKX derivatives update-time checks to request only the
+  latest observation.
+
 # investdatar 0.1.3.10
 
 - Hardened FRED source fetches so transient empty observation responses for

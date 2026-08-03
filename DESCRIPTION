@@ -1,18 +1,19 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.1.3.10
+Version: 0.1.4
 Author: Oliver Zhou
 Maintainer: Oliver Zhou <oliver.yxzhou@gmail.com>
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
     structured investment-related data. Includes functions for retrieving
-    macroeconomic series from FRED and the World Bank, standardizing market
-    OHLCV data from multiple providers, detecting time-series gaps, and
-    synchronizing local '.rds' data stores with sidecar metadata for analysis
-    and trading workflows. It also generates structured dataset descriptions
-    for LLM-based analyst agents that produce R code for analysis and
-    visualization. The package is released publicly through GitHub.
+    macroeconomic and public financial series, regulatory filings, futures
+    positioning, energy and fiscal data, market OHLCV, fund holdings, narrative
+    feeds, and crypto derivatives from multiple providers. It detects
+    time-series gaps and synchronizes local '.rds' data stores with sidecar
+    metadata for analysis and trading workflows. It also generates structured
+    dataset descriptions for LLM-based analyst agents that produce R code for
+    analysis and visualization. The package is released publicly through GitHub.
 License: MIT + file LICENSE
 URL: https://github.com/OliverLDS/investdatar
 BugReports: https://github.com/OliverLDS/investdatar/issues

@@ -9,12 +9,36 @@ WorldBank:
 Treasury:
   data_path: ./data/treasury
 
+CFTC:
+  data_path: ./data/cftc
+  registry_file: ./config/cftc_cot_registry.json
+
+FiscalData:
+  data_path: ./data/fiscal_data
+  registry_file: ./config/fiscaldata_registry.json
+
+EIA:
+  data_path: ./data/eia
+  registry_file: ./config/eia_series_registry.json
+  # API key is read from EIA_API_KEY when omitted here.
+
+SEC:
+  data_path: ./data/sec
+  registry_file: ./config/sec_company_registry.json
+  # Identifiable contact is required, e.g. Name email@example.com.
+  # user_agent: Your Name your_email@example.com
+
+SDMX:
+  data_path: ./data/sdmx
+  registry_file: ./config/sdmx_series_registry.json
+
 RSS:
   data_path: ./data/rss
   registry_file: ./config/rss_feed_registry.json
 
 Crypto:
   data_path: ./data/crypto
+  derivatives_registry_file: ./config/crypto_derivatives_registry.json
   # Optional OKX auth fields for okxr-backed calls:
   # api_key: your_okx_key
   # secret_key: your_okx_secret

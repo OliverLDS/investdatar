@@ -368,14 +368,20 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "rss",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "rss",
     summary = summary_dt,
     local_path = local_path,
     params = list(),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }

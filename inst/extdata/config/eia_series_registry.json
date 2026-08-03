@@ -1,0 +1,8 @@
+[
+  {"series_id":"PET.WCESTUS1.W","label":"U.S. Commercial Crude Oil Stocks Excluding SPR","main_group":"petroleum_stocks","frequency":"weekly","active":true},
+  {"series_id":"PET.WCRFPUS2.W","label":"U.S. Field Production of Crude Oil","main_group":"petroleum_supply","frequency":"weekly","active":true},
+  {"series_id":"PET.WCRRIUS2.W","label":"U.S. Refiner Net Input of Crude Oil","main_group":"petroleum_supply","frequency":"weekly","active":true},
+  {"series_id":"PET.WGTSTUS1.W","label":"U.S. Total Motor Gasoline Stocks","main_group":"petroleum_stocks","frequency":"weekly","active":true},
+  {"series_id":"PET.WDISTUS1.W","label":"U.S. Distillate Fuel Oil Stocks","main_group":"petroleum_stocks","frequency":"weekly","active":true},
+  {"series_id":"NG.NW2_EPG0_SWO_R48_BCF.W","label":"Lower 48 Working Natural Gas in Underground Storage","main_group":"natural_gas_storage","frequency":"weekly","active":true}
+]

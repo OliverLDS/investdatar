@@ -56,9 +56,17 @@
     fred = c("fred"),
     wbstats = c("wbstats", "worldbank", "world_bank", "wb"),
     treasury = c("treasury", "ustreasury", "us_treasury", "u.s._treasury"),
+    cftc = c("cftc", "cftc_cot", "cot"),
+    fiscaldata = c("fiscaldata", "fiscal_data", "treasury_fiscal_data"),
+    eia = c("eia", "energy_information_administration"),
+    sdmx = c("sdmx", "oecd", "ecb", "bis"),
+    sec = c("sec", "edgar"),
+    sec_submissions = c("sec_submissions", "edgar_submissions"),
+    sec_companyfacts = c("sec_companyfacts", "sec_company_facts", "edgar_companyfacts"),
     ishare = c("ishare", "ishares", "ishare_etf", "ishare-etf"),
     rss = c("rss"),
     crypto = c("crypto"),
+    crypto_derivatives = c("crypto_derivatives", "derivatives"),
     okx = c("okx"),
     binance = c("binance"),
     quantmod = c("quantmod"),
@@ -104,6 +112,17 @@
     }
   }
 
+  parent_config <- c(
+    sec_submissions = "sec",
+    sec_companyfacts = "sec",
+    crypto_derivatives = "crypto"
+  )
+  parent_key <- parent_config[[canonical[[1]]]]
+  if (!is.null(parent_key)) {
+    idx <- match(parent_key, existing_lc)
+    if (!is.na(idx)) return(existing[[idx]])
+  }
+
   NULL
 }
 
@@ -122,6 +141,16 @@
     alphavantage = list(
       api_key = Sys.getenv("ALPHAVANTAGE_API_KEY", unset = ""),
       url = "https://www.alphavantage.co/query"
+    ),
+    eia = list(
+      api_key = Sys.getenv("EIA_API_KEY", unset = ""),
+      url = "https://api.eia.gov/v2/seriesid"
+    ),
+    sec = list(
+      user_agent = Sys.getenv("SEC_USER_AGENT", unset = ""),
+      data_url = "https://data.sec.gov",
+      website_url = "https://www.sec.gov",
+      request_delay = 0.11
     )
   )
 }

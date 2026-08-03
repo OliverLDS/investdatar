@@ -1,0 +1,8 @@
+[
+  {"provider":"binance","dataset_type":"funding_rate","symbol":"BTCUSDT","interval":"funding","start":"2020-01-01","label":"Binance BTC perpetual funding rate","active":true},
+  {"provider":"binance","dataset_type":"funding_rate","symbol":"ETHUSDT","interval":"funding","start":"2020-01-01","label":"Binance ETH perpetual funding rate","active":true},
+  {"provider":"binance","dataset_type":"open_interest","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC perpetual open interest","active":true},
+  {"provider":"binance","dataset_type":"open_interest","symbol":"ETHUSDT","interval":"1h","start":null,"label":"Binance ETH perpetual open interest","active":true},
+  {"provider":"okx","dataset_type":"funding_rate","symbol":"BTC-USDT-SWAP","interval":"funding","start":"2020-01-01","label":"OKX BTC perpetual funding rate","active":true},
+  {"provider":"okx","dataset_type":"funding_rate","symbol":"ETH-USDT-SWAP","interval":"funding","start":"2020-01-01","label":"OKX ETH perpetual funding rate","active":true}
+]

@@ -362,14 +362,20 @@ sync_all_fred_registry_data <- function(registry = get_fred_registry(), config =
     )
   })
 
-  summary_dt <- data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE)
+  run_finished_at <- Sys.time()
+  summary_dt <- .normalize_sync_summary(
+    data.table::rbindlist(summary_list, use.names = TRUE, fill = TRUE),
+    source_id = "fred",
+    run_started_at = run_started_at,
+    run_finished_at = run_finished_at
+  )
   .write_sync_run_log(
     source_id = "fred",
     summary = summary_dt,
     local_path = local_path,
     params = list(from_server = from_server, tz = tz),
     run_started_at = run_started_at,
-    run_finished_at = Sys.time()
+    run_finished_at = run_finished_at
   )
   summary_dt
 }

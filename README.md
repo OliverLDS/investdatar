@@ -17,10 +17,16 @@ Supported providers currently include:
 - FRED
 - World Bank via `wbstats`
 - U.S. Treasury raw daily rates
+- CFTC Traders in Financial Futures positioning
+- U.S. Treasury Fiscal Data
+- U.S. Energy Information Administration fundamentals
+- SEC EDGAR submissions and XBRL Company Facts
+- registry-driven SDMX data from ECB, OECD, and BIS endpoints
 - RSS narrative feeds
 - iShares
 - OKX
 - Binance
+- Binance and OKX historical crypto derivatives metrics
 - AlphaVantage
 - Yahoo Finance via `quantmod`
 
@@ -38,13 +44,15 @@ remotes::install_github("OliverLDS/investdatar")
 Users should define `INVESTDATAR_CONFIG` in their `.Renviron` file. It must
 point to a YAML file. A minimal example is shipped with the package at
 `inst/extdata/investdatar_config_example.yaml`. Credentials such as
-`FRED_API_KEY` and `ALPHAVANTAGE_API_KEY` should also be stored in `.Renviron`
-when needed.
+`FRED_API_KEY`, `ALPHAVANTAGE_API_KEY`, `EIA_API_KEY`, and `SEC_USER_AGENT`
+should also be stored in `.Renviron` when needed.
 
 ```sh
 INVESTDATAR_CONFIG=/absolute/path/to/investdatar_config.yaml
 FRED_API_KEY=your_fred_key
 ALPHAVANTAGE_API_KEY=your_alphavantage_key
+EIA_API_KEY=your_eia_key
+SEC_USER_AGENT=Your Name your_email@example.com
 ```
 
 The YAML file is intended for local storage paths and source-specific metadata.
@@ -67,12 +75,33 @@ WorldBank:
 Treasury:
   data_path: /absolute/path/to/treasury_data
 
+CFTC:
+  data_path: /absolute/path/to/cftc_data
+  registry_file: /absolute/path/to/cftc_cot_registry.json
+
+FiscalData:
+  data_path: /absolute/path/to/fiscal_data
+  registry_file: /absolute/path/to/fiscaldata_registry.json
+
+EIA:
+  data_path: /absolute/path/to/eia_data
+  registry_file: /absolute/path/to/eia_series_registry.json
+
+SEC:
+  data_path: /absolute/path/to/sec_data
+  registry_file: /absolute/path/to/sec_company_registry.json
+
+SDMX:
+  data_path: /absolute/path/to/sdmx_data
+  registry_file: /absolute/path/to/sdmx_series_registry.json
+
 RSS:
   data_path: /absolute/path/to/rss_data
   registry_file: /absolute/path/to/rss_feed_registry.json
 
 Crypto:
   data_path: /absolute/path/to/crypto_data
+  derivatives_registry_file: /absolute/path/to/crypto_derivatives_registry.json
   # OKX local files are stored under /absolute/path/to/crypto_data/okx
   # Binance local files should be stored under /absolute/path/to/crypto_data/binance
 
@@ -118,6 +147,25 @@ treasury_dt <- get_source_data_treasury_rates("par_yield_curve", years = 2026)
 treasury_sync <- sync_local_treasury_rates("par_yield_curve")
 treasury_local <- get_local_treasury_rates("par_yield_curve")
 
+cftc_dt <- get_source_data_cftc_cot("futures_only", market_codes = "020601")
+cftc_sync <- sync_all_cftc_cot_registry_data()
+cftc_local <- get_local_cftc_cot("tff_futures_only")
+
+fiscal_sync <- sync_all_fiscaldata_registry_data()
+debt_local <- get_local_fiscaldata("debt_to_penny")
+
+eia_sync <- sync_all_eia_registry_data()
+crude_stocks <- get_local_eia_data("PET.WCESTUS1.W")
+
+sec_submissions_sync <- sync_all_sec_submissions_registry_data()
+sec_facts_sync <- sync_all_sec_companyfacts_registry_data()
+
+sdmx_sync <- sync_all_sdmx_registry_data()
+ecb_fx <- get_local_sdmx_data("ecb_usd_eur_daily")
+
+derivatives_sync <- sync_all_crypto_derivatives_registry_data()
+btc_funding <- get_local_crypto_derivatives("binance", "funding_rate", "BTCUSDT", "funding")
+
 rss_dt <- get_source_data_rss("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
 rss_sync <- sync_local_rss_data("atlfed_gdpnow", "https://www.atlantafed.org/rss/GDPNow", parser = "gdpnow")
 rss_local <- get_local_rss_data("atlfed_gdpnow")
@@ -155,10 +203,17 @@ specs as follows:
 - `wbstats` -> `get_local_wbstats_data()`
 - `rss` -> `get_local_rss_data()`
 - `treasury` -> `get_local_treasury_rates()`
+- `cftc` -> `get_local_cftc_cot()`
+- `fiscaldata` -> `get_local_fiscaldata()`
+- `eia` -> `get_local_eia_data()`
+- `sec_submissions` -> `get_local_sec_submissions()`
+- `sec_companyfacts` -> `get_local_sec_companyfacts()`
+- `sdmx` -> `get_local_sdmx_data()`
 - `ishare` -> `get_local_ishare_data()`
 - `okx` -> `get_local_okx_candle()`
 - `binance` -> `get_local_binance_klines()`
 - `quantmod` with `src = "yahoo"` -> `get_local_quantmod_OHLC()`
+- `crypto_derivatives` -> `get_local_crypto_derivatives()`
 
 Local path conventions for other market-data specs:
 
@@ -173,11 +228,18 @@ Current local sync helpers include:
 - `sync_local_wbstats_data()`
 - `sync_local_rss_data()`
 - `sync_local_treasury_rates()`
+- `sync_local_cftc_cot()`
+- `sync_local_fiscaldata()`
+- `sync_local_eia_data()`
+- `sync_local_sec_submissions()`
+- `sync_local_sec_companyfacts()`
+- `sync_local_sdmx_data()`
 - `sync_local_ishare_data()`
 - `sync_local_ishare_holdings()`
 - `sync_local_okx_candle()`
 - `sync_local_binance_klines()`
 - `sync_local_quantmod_OHLC()`
+- `sync_local_crypto_derivatives()`
 
 For large candle repair workflows, prefer batch repair helpers that fetch all
 missing pages or windows in memory and write the local `.rds` file once:
@@ -205,6 +267,48 @@ It synchronizes the five built-in Treasury datasets into the configured
 - `long_term_rates`
 - `real_yield_curve`
 - `real_long_term_rates`
+
+CFTC Traders in Financial Futures batch sync is available through
+`sync_all_cftc_cot_registry_data()`. The registry pins the official
+futures-only and futures-and-options-combined datasets and can optionally
+restrict downloads to selected CFTC contract-market codes. Local synchronization
+uses a two-week overlap and keyed upserts so routine runs retrieve only recent
+report weeks while retaining corrected values.
+
+Treasury Fiscal Data batch sync is available through
+`sync_all_fiscaldata_registry_data()`. The shipped registry starts with Debt to
+the Penny and the Daily Treasury Statement Operating Cash Balance. Each entry
+declares its endpoint and key columns, allowing heterogeneous Treasury tables to
+retain their source fields while sharing pagination, incremental synchronization,
+metadata, and run-log behavior.
+
+EIA registry batch sync is available through `sync_all_eia_registry_data()`.
+The initial registry tracks six weekly physical-market fundamentals covering
+petroleum inventories, crude production and refinery inputs, and Lower-48
+natural-gas storage. Set `EIA_API_KEY` in `.Renviron`; routine syncs overlap the
+latest local month and upsert revised observations.
+
+SEC EDGAR uses one company registry for two independent local datasets.
+`sync_all_sec_submissions_registry_data()` stores filing events keyed by CIK and
+accession number, including historical submission files on first sync.
+`sync_all_sec_companyfacts_registry_data()` stores XBRL facts in long form while
+retaining taxonomy, unit, reporting context, accession, and amendment details.
+Set `SEC_USER_AGENT` to an identifiable contact before making SEC requests.
+
+SDMX batch sync is available through `sync_all_sdmx_registry_data()`. Registry
+entries declare the provider, dataflow, key, CSV format, observation columns,
+and dimensions; the local canonical fields are stored alongside the original
+provider columns. The shipped registry includes active ECB exchange-rate and
+BIS policy-rate seeds. It also includes an OECD composite-leading-indicator
+example disabled by default because that documented endpoint may present a
+Cloudflare browser challenge to automated clients.
+
+Crypto derivatives batch sync is available through
+`sync_all_crypto_derivatives_registry_data()`. The shipped registry tracks BTC
+and ETH funding-rate history on Binance and OKX plus Binance hourly open-interest
+history. These are real historical endpoints with stable observation times;
+snapshot-only OKX open interest is excluded so local history does not depend on
+when a scheduler happened to run.
 
 RSS feed registry batch sync is available through
 `sync_all_rss_registry_data()`. It reads feed metadata from the configured

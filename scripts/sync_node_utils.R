@@ -145,7 +145,7 @@ print_sync_help <- function(source_id, description, extra_help = NULL) {
 }
 
 run_sync_node <- function(source_id, path_source, cadence, sync_call, description,
-                          extra_help = NULL) {
+                          extra_help = NULL, path_subdir = NULL) {
   if (has_flag("-h", "--help")) {
     print_sync_help(source_id, description, extra_help = extra_help)
     quit(save = "no", status = 0L)
@@ -157,9 +157,10 @@ run_sync_node <- function(source_id, path_source, cadence, sync_call, descriptio
   output <- tryCatch(
     {
       load_local_investdatar(config_path = config_path)
-      local_path <- investdatar::get_source_data_path(path_source, create = TRUE)
+      local_path <- investdatar::get_source_data_path(path_source, subdir = path_subdir, create = TRUE)
       previous_run <- tryCatch(investdatar::get_latest_sync_run(source_id, local_path = local_path), error = function(e) NULL)
-      fresh <- !is.null(previous_run) && same_period(previous_run$run_finished_at, cadence = cadence)
+      previous_run_succeeded <- !is.null(previous_run) && investdatar::is_sync_run_successful(previous_run)
+      fresh <- previous_run_succeeded && same_period(previous_run$run_finished_at, cadence = cadence)
 
       if (fresh && !force) {
         list(
@@ -178,8 +179,13 @@ run_sync_node <- function(source_id, path_source, cadence, sync_call, descriptio
       } else {
         result <- eval(sync_call)
         latest_run <- tryCatch(investdatar::get_latest_sync_run(source_id, local_path = local_path), error = function(e) NULL)
+        run_succeeded <- if (is.null(latest_run)) {
+          investdatar::is_sync_run_successful(list(summary = result))
+        } else {
+          investdatar::is_sync_run_successful(latest_run)
+        }
         list(
-          success = TRUE,
+          success = run_succeeded,
           source_id = source_id,
           skipped = FALSE,
           cadence = cadence,
@@ -188,7 +194,7 @@ run_sync_node <- function(source_id, path_source, cadence, sync_call, descriptio
           run_finished_at = if (is.null(latest_run)) NULL else iso_time(latest_run$run_finished_at),
           run_log_path = latest_sync_log_path(source_id, local_path),
           result_summary = summarize_sync_result(result),
-          error = NULL,
+          error = if (run_succeeded) NULL else "one_or_more_registry_items_failed",
           started_at = iso_time(started_at),
           finished_at = iso_time(Sys.time())
         )
