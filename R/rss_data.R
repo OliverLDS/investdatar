@@ -38,7 +38,7 @@ get_rss_registry_file_path <- function(config_dir = NULL) {
 get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
   .read_json_registry(
     registry_path,
-    empty_cols = c("feed_id", "provider", "url", "type", "parser", "main_group", "active")
+    empty_cols = c("feed_id", "provider", "url", "type", "parser", "main_group", "ca_bundle", "active")
   )
 }
 
@@ -47,8 +47,36 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
   sprintf("%s.rds", feed_id)
 }
 
-.fetch_rss_feed_text <- function(url) {
-  res <- curl::curl_fetch_memory(url)
+.resolve_rss_ca_bundle <- function(ca_bundle) {
+  if (is.null(ca_bundle) || length(ca_bundle) == 0L) return(NULL)
+  if (length(ca_bundle) != 1L) stop("RSS ca_bundle must be one file path.", call. = FALSE)
+  if (is.na(ca_bundle) || !nzchar(ca_bundle)) return(NULL)
+  path <- .normalize_scalar_path(ca_bundle, config_dir = getOption("investdatar.config_dir"))
+  if (!file.exists(path)) stop("RSS CA bundle does not exist: ", path, call. = FALSE)
+  if (file.access(path, mode = 4L) != 0L) stop("RSS CA bundle is not readable: ", path, call. = FALSE)
+  path
+}
+
+.rss_feed_ca_bundle <- function(feed_id, registry, row, ca_bundles = NULL) {
+  if ("ca_bundle" %in% names(registry)) {
+    row_value <- registry$ca_bundle[[row]]
+    if (!is.null(row_value) && length(row_value) == 1L && !is.na(row_value) && nzchar(row_value)) {
+      return(.resolve_rss_ca_bundle(row_value))
+    }
+  }
+  if (is.null(ca_bundles)) {
+    cfg <- tryCatch(get_source_config("rss"), error = function(e) list())
+    ca_bundles <- cfg$feed_ca_bundles
+  }
+  if (is.null(ca_bundles) || is.null(names(ca_bundles)) || !feed_id %in% names(ca_bundles)) return(NULL)
+  .resolve_rss_ca_bundle(ca_bundles[[feed_id]])
+}
+
+.fetch_rss_feed_text <- function(url, ca_bundle = NULL) {
+  handle <- curl::new_handle()
+  ca_bundle <- .resolve_rss_ca_bundle(ca_bundle)
+  if (!is.null(ca_bundle)) curl::handle_setopt(handle, cainfo = ca_bundle)
+  res <- curl::curl_fetch_memory(url, handle = handle)
   rawToChar(res$content)
 }
 
@@ -230,12 +258,13 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 #' @param feed_id Local feed identifier.
 #' @param url RSS feed URL.
 #' @param parser Parsing strategy. Currently supports `"plain"` and `"gdpnow"`.
+#' @param ca_bundle Optional CA bundle path used only for this feed request.
 #'
 #' @return `data.table`.
 #' @export
-get_source_data_rss <- function(feed_id, url, parser = c("plain", "gdpnow")) {
+get_source_data_rss <- function(feed_id, url, parser = c("plain", "gdpnow"), ca_bundle = NULL) {
   parser <- match.arg(parser)
-  feed_text <- .fetch_rss_feed_text(url)
+  feed_text <- .fetch_rss_feed_text(url, ca_bundle = ca_bundle)
   .parse_rss_items(feed_text = feed_text, feed_id = feed_id, parser = parser)
 }
 
@@ -244,11 +273,14 @@ get_source_data_rss <- function(feed_id, url, parser = c("plain", "gdpnow")) {
 #' @param feed_id Local feed identifier.
 #' @param url RSS feed URL.
 #' @param parser Parsing strategy. Currently supports `"plain"` and `"gdpnow"`.
+#' @param ca_bundle Optional CA bundle path used only for this feed request.
 #'
 #' @return POSIXct or `NULL`.
 #' @export
-get_source_utime_rss <- function(feed_id, url, parser = c("plain", "gdpnow")) {
-  dt <- get_source_data_rss(feed_id = feed_id, url = url, parser = parser)
+get_source_utime_rss <- function(feed_id, url, parser = c("plain", "gdpnow"), ca_bundle = NULL) {
+  fetch_args <- list(feed_id = feed_id, url = url, parser = parser)
+  if (!is.null(ca_bundle)) fetch_args$ca_bundle <- ca_bundle
+  dt <- do.call(get_source_data_rss, fetch_args)
   if (nrow(dt) == 0L || all(is.na(dt$published_at))) {
     return(NULL)
   }
@@ -284,16 +316,20 @@ get_local_rss_data <- function(feed_id, local_path = NULL) {
 #' @param url RSS feed URL.
 #' @param parser Parsing strategy. Currently supports `"plain"` and `"gdpnow"`.
 #' @param local_path Optional local storage path.
+#' @param ca_bundle Optional CA bundle path used only for this feed request.
 #'
 #' @return A sync result list.
 #' @export
-sync_local_rss_data <- function(feed_id, url, parser = c("plain", "gdpnow"), local_path = NULL) {
+sync_local_rss_data <- function(feed_id, url, parser = c("plain", "gdpnow"), local_path = NULL,
+                                ca_bundle = NULL) {
   parser <- match.arg(parser)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("rss", create = TRUE)
   }
 
-  new_dt <- get_source_data_rss(feed_id = feed_id, url = url, parser = parser)
+  fetch_args <- list(feed_id = feed_id, url = url, parser = parser)
+  if (!is.null(ca_bundle)) fetch_args$ca_bundle <- ca_bundle
+  new_dt <- do.call(get_source_data_rss, fetch_args)
   source_utime <- if (nrow(new_dt) == 0L || all(is.na(new_dt$published_at))) NULL else max(new_dt$published_at, na.rm = TRUE)
   local_file_path <- file.path(local_path, .rss_local_filename(feed_id))
 
@@ -316,16 +352,25 @@ sync_local_rss_data <- function(feed_id, url, parser = c("plain", "gdpnow"), loc
 #'
 #' @param registry Optional RSS registry table.
 #' @param local_path Optional local storage path.
+#' @param ca_bundles Optional named list or character vector mapping feed IDs to
+#'   request-scoped CA bundle paths. When omitted, `RSS.feed_ca_bundles` is read
+#'   from package configuration.
 #'
 #' @return Summary `data.table`.
 #' @export
-sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path = NULL) {
+sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path = NULL,
+                                       ca_bundles = NULL) {
   stopifnot(all(c("feed_id", "url") %in% names(registry)))
 
   if (is.null(local_path)) {
     local_path <- get_source_data_path("rss", create = TRUE)
   }
   run_started_at <- Sys.time()
+  effective_ca_bundles <- ca_bundles
+  if (is.null(effective_ca_bundles)) {
+    cfg <- tryCatch(get_source_config("rss"), error = function(e) list())
+    effective_ca_bundles <- cfg$feed_ca_bundles
+  }
 
   if ("active" %in% names(registry)) {
     active_flag <- tolower(as.character(registry[["active"]]))
@@ -345,7 +390,10 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
 
     tryCatch(
       {
-        res <- sync_local_rss_data(feed_id = feed_id, url = url, parser = parser, local_path = local_path)
+        ca_bundle <- .rss_feed_ca_bundle(feed_id, registry, i, ca_bundles = effective_ca_bundles)
+        args <- list(feed_id = feed_id, url = url, parser = parser, local_path = local_path)
+        if (!is.null(ca_bundle)) args$ca_bundle <- ca_bundle
+        res <- do.call(sync_local_rss_data, args)
         data.table::data.table(
           feed_id = feed_id,
           status = "success",
@@ -362,7 +410,9 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
           updated = FALSE,
           n_rows = NA_integer_,
           n_new_rows = NA_integer_,
-          error = conditionMessage(e)
+          error = conditionMessage(e),
+          error_class = class(e)[[1L]],
+          http_status = if (inherits(e, "investdatar_http_error")) e$status_code else NA_integer_
         )
       }
     )
@@ -379,7 +429,7 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
     source_id = "rss",
     summary = summary_dt,
     local_path = local_path,
-    params = list(),
+    params = list(ca_bundle_feed_ids = names(effective_ca_bundles %||% list())),
     run_started_at = run_started_at,
     run_finished_at = run_finished_at
   )

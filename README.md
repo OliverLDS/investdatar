@@ -116,6 +116,9 @@ SDMX:
 RSS:
   data_path: /absolute/path/to/rss_data
   registry_file: /absolute/path/to/rss_feed_registry.json
+  # Optional request-scoped overrides for runtimes with an incomplete CA bundle.
+  # feed_ca_bundles:
+  #   cftc_press_releases: /absolute/path/to/current-ca-bundle.pem
 
 Crypto:
   data_path: /absolute/path/to/crypto_data
@@ -350,7 +353,10 @@ useful source dimensions.
 RSS feed registry batch sync is available through
 `sync_all_rss_registry_data()`. It reads feed metadata from the configured
 `RSS.registry_file` and synchronizes each configured feed into a local `.rds`
-table.
+table. If the runtime's default certificate store cannot verify one feed, add
+that feed under `RSS.feed_ca_bundles` or set its registry `ca_bundle` field.
+The override applies only to that feed request and does not disable TLS
+verification. Registry-level `ca_bundle` values take precedence over config.
 
 The shipped example registry includes Atlanta Fed, SEC, Federal Reserve, and
 CFTC seeds:

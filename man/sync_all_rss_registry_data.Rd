@@ -4,12 +4,20 @@
 \alias{sync_all_rss_registry_data}
 \title{Synchronize All RSS Registry Feeds}
 \usage{
-sync_all_rss_registry_data(registry = get_rss_registry(), local_path = NULL)
+sync_all_rss_registry_data(
+  registry = get_rss_registry(),
+  local_path = NULL,
+  ca_bundles = NULL
+)
 }
 \arguments{
 \item{registry}{Optional RSS registry table.}
 
 \item{local_path}{Optional local storage path.}
+
+\item{ca_bundles}{Optional named list or character vector mapping feed IDs to
+request-scoped CA bundle paths. When omitted, \code{RSS.feed_ca_bundles} is read
+from package configuration.}
 }
 \value{
 Summary \code{data.table}.

@@ -8,7 +8,8 @@ sync_local_rss_data(
   feed_id,
   url,
   parser = c("plain", "gdpnow"),
-  local_path = NULL
+  local_path = NULL,
+  ca_bundle = NULL
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ sync_local_rss_data(
 \item{parser}{Parsing strategy. Currently supports \code{"plain"} and \code{"gdpnow"}.}
 
 \item{local_path}{Optional local storage path.}
+
+\item{ca_bundle}{Optional CA bundle path used only for this feed request.}
 }
 \value{
 A sync result list.

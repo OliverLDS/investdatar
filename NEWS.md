@@ -1,3 +1,9 @@
+# investdatar (development)
+
+- Added feed-scoped RSS CA-bundle configuration so a feed with a certificate
+  chain missing from the runtime's default trust store can be synchronized
+  without disabling TLS verification or affecting other feeds.
+
 # investdatar 0.1.5
 
 - Added optional monthly partitioned OKX and Binance candle storage with

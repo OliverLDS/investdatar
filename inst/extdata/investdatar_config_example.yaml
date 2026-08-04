@@ -36,6 +36,9 @@ SDMX:
 RSS:
   data_path: ./data/rss
   registry_file: ./config/rss_feed_registry.json
+  # Request-scoped override for runtimes whose default CA bundle lacks Sectigo Root R46.
+  # feed_ca_bundles:
+  #   cftc_press_releases: /absolute/path/to/current-ca-bundle.pem
 
 Crypto:
   data_path: ./data/crypto

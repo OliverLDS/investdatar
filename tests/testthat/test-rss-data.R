@@ -82,7 +82,7 @@ test_that("RSS registry helpers return schema-stable tables and batch sync summa
   registry <- investdatar::get_rss_registry(registry_path = registry_path)
 
   expect_s3_class(registry, "data.table")
-  expect_equal(names(registry), c("feed_id", "provider", "url", "type", "parser", "main_group", "active"))
+  expect_equal(names(registry), c("feed_id", "provider", "url", "type", "parser", "main_group", "ca_bundle", "active"))
 
   registry <- data.table::data.table(
     feed_id = c("atlfed_gdpnow", "bad_feed"),
@@ -95,7 +95,12 @@ test_that("RSS registry helpers return schema-stable tables and batch sync summa
   assignInNamespace(
     "sync_local_rss_data",
     function(feed_id, url, parser = c("plain", "gdpnow"), local_path = NULL) {
-      if (feed_id == "bad_feed") stop("download failed")
+      if (feed_id == "bad_feed") {
+        stop(structure(
+          list(message = "SSL certificate problem: unable to get local issuer certificate", call = NULL),
+          class = c("curl_error_ssl_cacert", "error", "condition")
+        ))
+      }
       list(updated = TRUE, n_rows = 4L, n_new_rows = 1L)
     },
     ns = "investdatar"
@@ -107,4 +112,72 @@ test_that("RSS registry helpers return schema-stable tables and batch sync summa
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[feed_id == "atlfed_gdpnow", status][[1]], "success")
   expect_equal(summary_dt[feed_id == "bad_feed", status][[1]], "error")
+  expect_equal(summary_dt[feed_id == "bad_feed", error_class][[1]], "curl_error_ssl_cacert")
+  expect_match(summary_dt[feed_id == "bad_feed", error_message][[1]], "unable to get local issuer")
+  expect_false(investdatar::is_sync_run_successful(list(summary = summary_dt)))
+})
+
+test_that("RSS CA bundles are request scoped and other feeds do not inherit them", {
+  local_dir <- withr::local_tempdir()
+  bundle <- file.path(local_dir, "current-ca.pem")
+  writeLines("test bundle", bundle)
+  withr::local_options(list(
+    investdatar.config = list(RSS = list(feed_ca_bundles = list(cftc_press_releases = bundle))),
+    investdatar.config_dir = local_dir
+  ))
+  registry <- data.table::data.table(
+    feed_id = c("cftc_press_releases", "fed_press_all"),
+    url = c("https://www.cftc.gov/RSS/RSSGP/rssgp.xml", "https://www.federalreserve.gov/feeds/press_all.xml"),
+    parser = "plain", active = TRUE
+  )
+  observed <- list()
+  old_sync <- get("sync_local_rss_data", envir = asNamespace("investdatar"))
+  assignInNamespace(
+    "sync_local_rss_data",
+    function(feed_id, url, parser = "plain", local_path = NULL, ca_bundle = NULL) {
+      observed[[feed_id]] <<- ca_bundle
+      list(updated = TRUE, n_rows = 1L, n_new_rows = 1L)
+    },
+    ns = "investdatar"
+  )
+  on.exit(assignInNamespace("sync_local_rss_data", old_sync, ns = "investdatar"), add = TRUE)
+
+  summary_dt <- investdatar::sync_all_rss_registry_data(registry, local_path = local_dir)
+
+  expect_true(all(summary_dt$status == "success"))
+  expect_equal(observed$cftc_press_releases, normalizePath(bundle))
+  expect_null(observed$fed_press_all)
+  expect_true(investdatar::is_sync_run_successful(list(summary = summary_dt)))
+  expect_equal(
+    investdatar::get_latest_sync_run("rss", local_dir)$params$ca_bundle_feed_ids,
+    "cftc_press_releases"
+  )
+})
+
+test_that("an invalid feed CA bundle fails only that RSS feed", {
+  local_dir <- withr::local_tempdir()
+  registry <- data.table::data.table(
+    feed_id = c("cftc_press_releases", "fed_press_all"),
+    url = c("https://www.cftc.gov/RSS/RSSGP/rssgp.xml", "https://www.federalreserve.gov/feeds/press_all.xml"),
+    parser = "plain", active = TRUE
+  )
+  old_sync <- get("sync_local_rss_data", envir = asNamespace("investdatar"))
+  assignInNamespace(
+    "sync_local_rss_data",
+    function(feed_id, url, parser = "plain", local_path = NULL, ca_bundle = NULL) {
+      list(updated = TRUE, n_rows = 1L, n_new_rows = 1L)
+    },
+    ns = "investdatar"
+  )
+  on.exit(assignInNamespace("sync_local_rss_data", old_sync, ns = "investdatar"), add = TRUE)
+
+  summary_dt <- investdatar::sync_all_rss_registry_data(
+    registry, local_path = local_dir,
+    ca_bundles = c(cftc_press_releases = file.path(local_dir, "missing.pem"))
+  )
+
+  expect_equal(summary_dt$status, c("error", "success"))
+  expect_match(summary_dt$error_message[[1L]], "does not exist")
+  expect_false(investdatar::is_sync_run_successful(list(summary = summary_dt)))
+  expect_false(investdatar::is_sync_run_successful(investdatar::get_latest_sync_run("rss", local_dir)))
 })

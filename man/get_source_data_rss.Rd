@@ -4,7 +4,12 @@
 \alias{get_source_data_rss}
 \title{Get RSS Feed Data}
 \usage{
-get_source_data_rss(feed_id, url, parser = c("plain", "gdpnow"))
+get_source_data_rss(
+  feed_id,
+  url,
+  parser = c("plain", "gdpnow"),
+  ca_bundle = NULL
+)
 }
 \arguments{
 \item{feed_id}{Local feed identifier.}
@@ -12,6 +17,8 @@ get_source_data_rss(feed_id, url, parser = c("plain", "gdpnow"))
 \item{url}{RSS feed URL.}
 
 \item{parser}{Parsing strategy. Currently supports \code{"plain"} and \code{"gdpnow"}.}
+
+\item{ca_bundle}{Optional CA bundle path used only for this feed request.}
 }
 \value{
 \code{data.table}.
