@@ -63,6 +63,7 @@
     sec = c("sec", "edgar"),
     sec_submissions = c("sec_submissions", "edgar_submissions"),
     sec_companyfacts = c("sec_companyfacts", "sec_company_facts", "edgar_companyfacts"),
+    sec_frames = c("sec_frames", "sec_xbrl_frames"),
     ishare = c("ishare", "ishares", "ishare_etf", "ishare-etf"),
     rss = c("rss"),
     crypto = c("crypto"),
@@ -71,7 +72,10 @@
     binance = c("binance"),
     quantmod = c("quantmod"),
     yahoofinance = c("yahoofinance", "yahoo", "yahoofinance"),
-    alphavantage = c("alphavantage", "alpha_vantage", "alpha-vantage")
+    alphavantage = c("alphavantage", "alpha_vantage", "alpha-vantage"),
+    bls = c("bls", "bureau_labor_statistics"),
+    bea = c("bea", "bureau_economic_analysis"),
+    census = c("census", "us_census")
   )
 
   canonical <- names(alias_map)[vapply(alias_map, function(x) source_lc %in% x, logical(1))]
@@ -115,6 +119,7 @@
   parent_config <- c(
     sec_submissions = "sec",
     sec_companyfacts = "sec",
+    sec_frames = "sec",
     crypto_derivatives = "crypto"
   )
   parent_key <- parent_config[[canonical[[1]]]]
@@ -141,6 +146,18 @@
     alphavantage = list(
       api_key = Sys.getenv("ALPHAVANTAGE_API_KEY", unset = ""),
       url = "https://www.alphavantage.co/query"
+    ),
+    bls = list(
+      api_key = Sys.getenv("BLS_API_KEY", unset = ""),
+      url = "https://api.bls.gov/publicAPI/v2/timeseries/data/"
+    ),
+    bea = list(
+      api_key = Sys.getenv("BEA_API_KEY", unset = ""),
+      url = "https://apps.bea.gov/api/data/"
+    ),
+    census = list(
+      api_key = Sys.getenv("CENSUS_API_KEY", unset = ""),
+      url = "https://api.census.gov/data/timeseries/eits"
     ),
     eia = list(
       api_key = Sys.getenv("EIA_API_KEY", unset = ""),

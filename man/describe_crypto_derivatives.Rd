@@ -15,7 +15,8 @@ describe_crypto_derivatives(
 \arguments{
 \item{provider}{\code{binance} or \code{okx}.}
 
-\item{dataset_type}{\code{funding_rate} or \code{open_interest}.}
+\item{dataset_type}{Funding, open-interest, mark/index price, basis, or
+Binance long-short-ratio dataset identifier.}
 
 \item{symbol}{Provider instrument identifier.}
 

@@ -1,0 +1,5 @@
+[
+  {"series_id":"CUSR0000SA0","label":"CPI-U All Items, U.S. City Average, Seasonally Adjusted","start":"1947","frequency":"monthly","active":true},
+  {"series_id":"CES0000000001","label":"Total Nonfarm Payroll Employment, Seasonally Adjusted","start":"1939","frequency":"monthly","active":true},
+  {"series_id":"LNS14000000","label":"Civilian Unemployment Rate, Seasonally Adjusted","start":"1948","frequency":"monthly","active":true}
+]

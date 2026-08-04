@@ -17,11 +17,12 @@ Supported providers currently include:
 - FRED
 - World Bank via `wbstats`
 - U.S. Treasury raw daily rates
-- CFTC Traders in Financial Futures positioning
+- CFTC TFF, Disaggregated, and Legacy positioning
 - U.S. Treasury Fiscal Data
 - U.S. Energy Information Administration fundamentals
-- SEC EDGAR submissions and XBRL Company Facts
-- registry-driven SDMX data from ECB, OECD, and BIS endpoints
+- SEC EDGAR submissions, XBRL Company Facts and Frames, selected filing documents, and optional bulk archives
+- registry-driven SDMX data from ECB, OECD, BIS, Eurostat, and IMF endpoints
+- direct BLS labor, BEA regional, and Census Economic Indicators series
 - RSS narrative feeds
 - iShares
 - OKX
@@ -44,7 +45,8 @@ remotes::install_github("OliverLDS/investdatar")
 Users should define `INVESTDATAR_CONFIG` in their `.Renviron` file. It must
 point to a YAML file. A minimal example is shipped with the package at
 `inst/extdata/investdatar_config_example.yaml`. Credentials such as
-`FRED_API_KEY`, `ALPHAVANTAGE_API_KEY`, `EIA_API_KEY`, and `SEC_USER_AGENT`
+`FRED_API_KEY`, `ALPHAVANTAGE_API_KEY`, `EIA_API_KEY`, `BLS_API_KEY`,
+`BEA_API_KEY`, `CENSUS_API_KEY`, and `SEC_USER_AGENT`
 should also be stored in `.Renviron` when needed.
 
 ```sh
@@ -52,6 +54,9 @@ INVESTDATAR_CONFIG=/absolute/path/to/investdatar_config.yaml
 FRED_API_KEY=your_fred_key
 ALPHAVANTAGE_API_KEY=your_alphavantage_key
 EIA_API_KEY=your_eia_key
+BLS_API_KEY=your_optional_bls_key
+BEA_API_KEY=your_bea_key
+CENSUS_API_KEY=your_census_key
 SEC_USER_AGENT=Your Name your_email@example.com
 ```
 
@@ -87,9 +92,22 @@ EIA:
   data_path: /absolute/path/to/eia_data
   registry_file: /absolute/path/to/eia_series_registry.json
 
+BLS:
+  data_path: /absolute/path/to/bls_data
+  registry_file: /absolute/path/to/bls_series_registry.json
+
+BEA:
+  data_path: /absolute/path/to/bea_data
+  registry_file: /absolute/path/to/bea_series_registry.json
+
+Census:
+  data_path: /absolute/path/to/census_data
+  registry_file: /absolute/path/to/census_series_registry.json
+
 SEC:
   data_path: /absolute/path/to/sec_data
   registry_file: /absolute/path/to/sec_company_registry.json
+  frames_registry_file: /absolute/path/to/sec_frames_registry.json
 
 SDMX:
   data_path: /absolute/path/to/sdmx_data
@@ -113,6 +131,10 @@ iShare:
 YahooFinance:
   data_path: /absolute/path/to/yahoo_finance_data
   registry_file: /absolute/path/to/YahooFinance_ticker_registry.json
+
+AlphaVantage:
+  data_path: /absolute/path/to/alphavantage_data
+  registry_file: /absolute/path/to/alphavantage_series_registry.json
 ```
 
 Relative paths are also supported and are resolved relative to the config file
@@ -247,6 +269,11 @@ missing pages or windows in memory and write the local `.rds` file once:
 - `repair_local_okx_candle_gaps()`
 - `repair_local_binance_klines_gaps()`
 
+OKX and Binance candle readers, sync functions, and repair helpers also accept
+`storage = "monthly"`. This migrates a monolithic cache into `YYYY-MM.rds`
+partitions and rewrites only months touched by an upsert; bounded reads load
+only relevant partitions.
+
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
 `YahooFinance.registry_file` and synchronizes each one via `quantmod`.
@@ -268,16 +295,17 @@ It synchronizes the five built-in Treasury datasets into the configured
 - `real_yield_curve`
 - `real_long_term_rates`
 
-CFTC Traders in Financial Futures batch sync is available through
+CFTC Commitments of Traders batch sync is available through
 `sync_all_cftc_cot_registry_data()`. The registry pins the official
-futures-only and futures-and-options-combined datasets and can optionally
+TFF, Disaggregated, and Legacy futures-only and combined datasets and can optionally
 restrict downloads to selected CFTC contract-market codes. Local synchronization
 uses a two-week overlap and keyed upserts so routine runs retrieve only recent
 report weeks while retaining corrected values.
 
 Treasury Fiscal Data batch sync is available through
-`sync_all_fiscaldata_registry_data()`. The shipped registry starts with Debt to
-the Penny and the Daily Treasury Statement Operating Cash Balance. Each entry
+`sync_all_fiscaldata_registry_data()`. The shipped registry covers Debt to the
+Penny, the Daily Treasury Statement Operating Cash Balance, auctions, monthly
+receipts and outlays, interest expense, and Treasury securities outstanding. Each entry
 declares its endpoint and key columns, allowing heterogeneous Treasury tables to
 retain their source fields while sharing pagination, incremental synchronization,
 metadata, and run-log behavior.
@@ -294,21 +322,30 @@ accession number, including historical submission files on first sync.
 `sync_all_sec_companyfacts_registry_data()` stores XBRL facts in long form while
 retaining taxonomy, unit, reporting context, accession, and amendment details.
 Set `SEC_USER_AGENT` to an identifiable contact before making SEC requests.
+Cross-company XBRL Frames can be cached with `sync_local_sec_frame()` or an
+explicit Frames registry. `sync_sec_filing_documents()` downloads only selected
+primary documents from cached submissions, while `sync_local_sec_bulk_archive()`
+keeps the SEC nightly bulk ZIPs opt-in.
 
 SDMX batch sync is available through `sync_all_sdmx_registry_data()`. Registry
 entries declare the provider, dataflow, key, CSV format, observation columns,
 and dimensions; the local canonical fields are stored alongside the original
-provider columns. The shipped registry includes active ECB exchange-rate and
-BIS policy-rate seeds. It also includes an OECD composite-leading-indicator
-example disabled by default because that documented endpoint may present a
-Cloudflare browser challenge to automated clients.
+provider columns. The shipped registry includes ECB exchange and policy rates,
+BIS policy rates, Eurostat HICP, IMF DataMapper macro indicators, and an OECD
+composite-leading-indicator seed using the official SDMX REST v1 endpoint.
 
 Crypto derivatives batch sync is available through
 `sync_all_crypto_derivatives_registry_data()`. The shipped registry tracks BTC
-and ETH funding-rate history on Binance and OKX plus Binance hourly open-interest
-history. These are real historical endpoints with stable observation times;
-snapshot-only OKX open interest is excluded so local history does not depend on
-when a scheduler happened to run.
+and ETH funding, open interest, mark/index prices, basis, and Binance long-short
+ratios. Public websocket liquidation events can be upserted with
+`sync_local_crypto_liquidations()`; private account force-order history is not
+mislabeled as market-wide liquidation data.
+
+BLS, BEA, and Census provide selective direct-agency registry workflows through
+`sync_all_bls_registry_data()`, `sync_all_bea_registry_data()`, and
+`sync_all_census_registry_data()`. The seeds focus on labor-market series,
+state GDP/income panels, and advance retail sales where the direct APIs expose
+useful source dimensions.
 
 RSS feed registry batch sync is available through
 `sync_all_rss_registry_data()`. It reads feed metadata from the configured
@@ -369,14 +406,18 @@ package config and, unless you override it, tracks only:
 - `BDYN`
 - `BDVL`
 
-`alphavantage` currently provides fetch/standardization helpers but does not yet
-expose a package-level local reader/sync helper in the same pattern.
+`standardize_fund_holdings()` defines a provider-neutral long holdings contract;
+`get_local_ishare_holdings_standardized()` converts existing iShares caches
+without changing their backward-compatible file layout.
+
+Alpha Vantage supports local readers, incremental full/compact sync, a registry
+batch workflow, sidecar metadata, and run logs in the same pattern as other
+market providers.
 
 ## Notes
 
 - Some provider functions require suggested packages such as `okxr`,
   `quantmod`, `wbstats`, or `zoo`.
-- `alphavantage` is currently fetch-only at the package level.
 - Local sync helpers write `.rds` data files and `.meta.rds` sidecar metadata.
 - Configuration is read from the YAML file referenced by
   `INVESTDATAR_CONFIG`.

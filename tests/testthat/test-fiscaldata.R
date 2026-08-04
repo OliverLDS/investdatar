@@ -115,7 +115,11 @@ test_that("shipped Fiscal Data registry declares heterogeneous keys", {
   path <- system.file("extdata", "config", "fiscaldata_registry.json", package = "investdatar")
   registry <- investdatar::get_fiscaldata_registry(path)
 
-  expect_equal(registry$dataset_id, c("debt_to_penny", "operating_cash_balance"))
+  expect_equal(
+    registry$dataset_id,
+    c("debt_to_penny", "operating_cash_balance", "treasury_auctions", "monthly_receipts",
+      "monthly_outlays", "interest_expense", "treasury_securities_outstanding")
+  )
   expect_equal(unlist(registry$key_cols[[1L]]), "record_date")
   expect_true("account_type" %in% unlist(registry$key_cols[[2L]]))
 })

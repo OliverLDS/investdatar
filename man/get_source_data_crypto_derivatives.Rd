@@ -11,13 +11,15 @@ get_source_data_crypto_derivatives(
   interval = NULL,
   from = NULL,
   to = NULL,
-  limit = NULL
+  limit = NULL,
+  config = NULL
 )
 }
 \arguments{
 \item{provider}{\code{binance} or \code{okx}.}
 
-\item{dataset_type}{\code{funding_rate} or \code{open_interest}.}
+\item{dataset_type}{Funding, open-interest, mark/index price, basis, or
+Binance long-short-ratio dataset identifier.}
 
 \item{symbol}{Provider instrument identifier.}
 
@@ -26,6 +28,8 @@ get_source_data_crypto_derivatives(
 \item{from, to}{Optional inclusive UTC time bounds.}
 
 \item{limit}{Provider page size.}
+
+\item{config}{Optional exchange configuration.}
 }
 \value{
 A standardized \code{data.table} retaining provider fields.

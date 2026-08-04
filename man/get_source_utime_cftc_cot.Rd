@@ -6,11 +6,14 @@
 \usage{
 get_source_utime_cftc_cot(
   report_variant = c("futures_only", "combined"),
+  report_type = "tff",
   dataset_id = NULL
 )
 }
 \arguments{
 \item{report_variant}{Report variant: \code{"futures_only"} or \code{"combined"}.}
+
+\item{report_type}{Report family: \code{"tff"}, \code{"disaggregated"}, or \code{"legacy"}.}
 
 \item{dataset_id}{Optional official Socrata dataset identifier.}
 }

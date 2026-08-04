@@ -21,10 +21,51 @@ test_that("SDMX URL construction isolates provider dialects", {
     "https://data-api.ecb.europa.eu/service/data/EXR/D.USD.EUR.SP00.A"
   )
   expect_equal(
+    build("eurostat", "https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0", agency = "ESTAT", dataflow = "PRC_HICP_MIDX", version = "1.0", key = "M.I15.CP00.EA20"),
+    "https://ec.europa.eu/eurostat/api/dissemination/sdmx/3.0/data/dataflow/ESTAT/PRC_HICP_MIDX/1.0/M.I15.CP00.EA20"
+  )
+  expect_equal(
     build("bis", "https://stats.bis.org/api/v2", agency = "BIS", dataflow = "WS_CBPOL", version = "1.0", key = "M.US"),
     "https://stats.bis.org/api/v2/data/dataflow/BIS/WS_CBPOL/1.0/M.US"
   )
   expect_error(build("bis", "x", dataflow = "flow"), "require agency")
+})
+
+test_that("Eurostat uses SDMX 3 time filters", {
+  request <- NULL
+  testthat::with_mocked_bindings(
+    .http_request = function(method, url, query, headers) {
+      request <<- query
+      .sdmx_csv_response("freq,unit,coicop,geo,TIME_PERIOD,OBS_VALUE\nM,I15,CP00,EA20,2025-01,100")
+    },
+    investdatar::get_source_data_sdmx(
+      "hicp", "eurostat", "https://example.test/sdmx/3.0", agency = "ESTAT",
+      dataflow = "PRC_HICP_MIDX", version = "1.0", key = "M.I15.CP00.EA20",
+      dimension_cols = c("freq", "unit", "coicop", "geo"),
+      from = "2025-01", to = "2025-12"
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(request[["c[TIME_PERIOD]"]], "ge:2025-01+le:2025-12")
+  expect_null(request$startPeriod)
+})
+
+test_that("IMF DataMapper responses use the common long contract", {
+  response <- list(values = list(NGDP_RPCH = list(
+    USA = list(`2024` = 2.8, `2025` = 2.1),
+    PHL = list(`2024` = 5.7, `2025` = 6.1)
+  )))
+  out <- testthat::with_mocked_bindings(
+    .http_get_json = function(url, query) response,
+    investdatar::get_source_data_sdmx(
+      "imf_growth", "imf", "https://www.imf.org/external/datamapper/api/v2",
+      dataflow = "NGDP_RPCH", key = "USA.PHL", from = "2024", to = "2025"
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(nrow(out), 4L)
+  expect_setequal(out$REF_AREA, c("USA", "PHL"))
+  expect_equal(range(out$date), as.Date(c("2024-01-01", "2025-01-01")))
 })
 
 test_that("SDMX CSV is standardized while preserving provider columns", {
@@ -131,10 +172,9 @@ test_that("SDMX batch writes the common summary and run log", {
   expect_equal(investdatar::get_latest_sync_run("sdmx", local_dir)$source_id, "sdmx")
 })
 
-test_that("shipped SDMX registry seeds OECD ECB and BIS", {
+test_that("shipped SDMX registry seeds major public macro providers", {
   path <- system.file("extdata", "config", "sdmx_series_registry.json", package = "investdatar")
   registry <- investdatar::get_sdmx_registry(path)
-  expect_setequal(registry$provider, c("ecb", "oecd", "bis"))
-  expect_true(all(registry[provider %in% c("ecb", "bis"), active]))
-  expect_false(registry[provider == "oecd", active])
+  expect_setequal(registry$provider, c("ecb", "oecd", "bis", "eurostat", "imf"))
+  expect_true(all(registry$active))
 })

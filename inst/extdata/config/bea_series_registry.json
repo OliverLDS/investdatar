@@ -1,0 +1,4 @@
+[
+  {"series_id":"state_gdp","table_name":"SAGDP2N","line_code":"1","geofips":"STATE","year":"ALL","label":"State GDP, All Industry Total","active":true},
+  {"series_id":"state_per_capita_personal_income","table_name":"SAINC1N","line_code":"3","geofips":"STATE","year":"ALL","label":"State Per Capita Personal Income","active":true}
+]

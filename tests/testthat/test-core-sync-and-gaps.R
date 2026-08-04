@@ -119,6 +119,68 @@ test_that("sync_local_data_batches merges pages before one local sync", {
   expect_equal(local_dt$value, c(1, 2, 3))
 })
 
+test_that("monthly partition sync rewrites touched months and supports bounded reads", {
+  local_dir <- withr::local_tempdir()
+  out_path <- file.path(local_dir, "BTCUSDT__1m.rds")
+  first <- data.table::data.table(
+    symbol = "BTCUSDT", interval = "1m",
+    datetime = as.POSIXct(c("2026-01-31 23:59:00", "2026-02-01 00:00:00"), tz = "UTC"),
+    close = c(1, 2)
+  )
+  second <- data.table::data.table(
+    symbol = "BTCUSDT", interval = "1m",
+    datetime = as.POSIXct(c("2026-02-01 00:00:00", "2026-03-01 00:00:00"), tz = "UTC"),
+    close = c(2.5, 3)
+  )
+
+  res1 <- investdatar::sync_local_data_partitioned(
+    first, out_path, time_col = "datetime",
+    key_cols = c("symbol", "interval", "datetime"), order_cols = "datetime"
+  )
+  january_path <- file.path(local_dir, "BTCUSDT__1m.parts", "2026-01.rds")
+  january_mtime <- file.info(january_path)$mtime
+  Sys.sleep(0.01)
+  res2 <- investdatar::sync_local_data_partitioned(
+    second, out_path, time_col = "datetime",
+    key_cols = c("symbol", "interval", "datetime"), order_cols = "datetime"
+  )
+  february <- investdatar::get_local_data_partitioned(
+    out_path, "datetime", from = "2026-02-01", to = "2026-02-28 23:59:59"
+  )
+  april <- investdatar::get_local_data_partitioned(
+    out_path, "datetime", from = "2026-04-01", to = "2026-04-30 23:59:59"
+  )
+
+  expect_equal(res1$n_rows, 2L)
+  expect_equal(res2$n_rows, 3L)
+  expect_equal(res2$n_new_rows, 1L)
+  expect_equal(february$close, 2.5)
+  expect_equal(nrow(april), 0L)
+  expect_equal(file.info(january_path)$mtime, january_mtime)
+  expect_equal(investdatar::get_local_data_meta(out_path)$storage, "monthly")
+})
+
+test_that("monthly partition sync migrates an existing monolithic cache", {
+  local_dir <- withr::local_tempdir()
+  out_path <- file.path(local_dir, "ETHUSDT__1h.rds")
+  legacy <- data.table::data.table(
+    symbol = "ETHUSDT", interval = "1h",
+    datetime = as.POSIXct(c("2025-12-31 23:00:00", "2026-01-01 00:00:00"), tz = "UTC"),
+    close = c(10, 11)
+  )
+  saveRDS(legacy, out_path)
+
+  investdatar::sync_local_data_partitioned(
+    legacy[2], out_path, time_col = "datetime",
+    key_cols = c("symbol", "interval", "datetime"), order_cols = "datetime"
+  )
+  migrated <- investdatar::get_local_data_partitioned(out_path, "datetime")
+
+  expect_equal(nrow(migrated), 2L)
+  expect_true(file.exists(file.path(local_dir, "ETHUSDT__1h.parts", "2025-12.rds")))
+  expect_true(file.exists(file.path(local_dir, "ETHUSDT__1h.parts", "2026-01.rds")))
+})
+
 test_that("detect_time_gaps works for fixed and calendar frequencies", {
   candle_dt <- data.table::data.table(
     datetime = as.POSIXct(c("2026-03-26 00:00:00", "2026-03-26 08:00:00"), tz = "UTC")

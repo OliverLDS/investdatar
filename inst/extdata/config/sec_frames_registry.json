@@ -1,0 +1,4 @@
+[
+  {"taxonomy":"us-gaap","tag":"Assets","unit":"USD","period":"CY2025Q4I","label":"Total Assets","active":false},
+  {"taxonomy":"us-gaap","tag":"Revenues","unit":"USD","period":"CY2025Q4","label":"Quarterly Revenue","active":false}
+]

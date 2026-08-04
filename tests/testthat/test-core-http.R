@@ -3,7 +3,7 @@ test_that("HTTP requests retry retryable responses", {
   request <- getFromNamespace(".http_request", "investdatar")
 
   response <- testthat::with_mocked_bindings(
-    .http_perform_once = function(method, url, query, headers, timeout_seconds) {
+    .http_perform_once = function(method, url, query, headers, timeout_seconds, body = NULL, encode = "json") {
       attempts <<- attempts + 1L
       if (attempts == 1L) {
         return(list(
@@ -32,7 +32,7 @@ test_that("HTTP errors carry structured status metadata", {
   request <- getFromNamespace(".http_request", "investdatar")
 
   error <- testthat::with_mocked_bindings(
-    .http_perform_once = function(method, url, query, headers, timeout_seconds) {
+    .http_perform_once = function(method, url, query, headers, timeout_seconds, body = NULL, encode = "json") {
       list(
         status_code = 404L,
         headers = list(),
@@ -57,7 +57,7 @@ test_that("HTTP requests retry transport failures and retain the final cause", {
   request <- getFromNamespace(".http_request", "investdatar")
 
   error <- testthat::with_mocked_bindings(
-    .http_perform_once = function(method, url, query, headers, timeout_seconds) {
+    .http_perform_once = function(method, url, query, headers, timeout_seconds, body = NULL, encode = "json") {
       attempts <<- attempts + 1L
       stop("TLS handshake failed")
     },

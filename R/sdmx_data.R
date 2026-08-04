@@ -14,6 +14,10 @@
     if (is.null(agency) || !nzchar(agency)) stop("BIS SDMX entries require agency.", call. = FALSE)
     return(paste(base_url, "data", "dataflow", agency, dataflow, version, key, sep = "/"))
   }
+  if (provider == "eurostat") {
+    if (is.null(agency) || !nzchar(agency)) agency <- "ESTAT"
+    return(paste(base_url, "data", "dataflow", agency, dataflow, version, key, sep = "/"))
+  }
   if (is.null(flow_ref) || !nzchar(flow_ref)) {
     flow_ref <- if (!is.null(agency) && nzchar(agency)) {
       paste(agency, dataflow, version, sep = ",")
@@ -22,6 +26,48 @@
     }
   }
   paste(base_url, "data", flow_ref, key, sep = "/")
+}
+
+.standardize_imf_datamapper <- function(response, series_id, indicator,
+                                        countries, label = NULL) {
+  values <- response$values[[indicator]]
+  empty <- .standardize_sdmx_data(
+    data.table::data.table(), series_id, "imf", paste(countries, collapse = "."),
+    label = label, frequency = "A"
+  )
+  if (is.null(values) || length(values) == 0L) return(empty)
+  rows <- lapply(intersect(countries, names(values)), function(country) {
+    x <- values[[country]]
+    if (is.null(x) || length(x) == 0L) return(NULL)
+    data.table::data.table(
+      REF_AREA = country, INDICATOR = indicator,
+      TIME_PERIOD = names(x), OBS_VALUE = suppressWarnings(as.numeric(unlist(x, use.names = FALSE)))
+    )
+  })
+  dt <- data.table::rbindlist(rows, use.names = TRUE, fill = TRUE)
+  .standardize_sdmx_data(
+    dt, series_id = series_id, provider = "imf", key = paste(countries, collapse = "."),
+    dimension_cols = c("REF_AREA", "INDICATOR"), label = label, frequency = "A"
+  )
+}
+
+.get_source_data_imf_datamapper <- function(series_id, base_url, indicator,
+                                            countries, label = NULL,
+                                            from = NULL, to = NULL) {
+  countries <- .sdmx_registry_vector(countries)
+  if (length(countries) == 1L && grepl("\\.", countries, fixed = FALSE)) {
+    countries <- strsplit(countries, ".", fixed = TRUE)[[1L]]
+  }
+  if (length(countries) == 0L) stop("IMF DataMapper entries require country IDs in key.", call. = FALSE)
+  url <- paste(c(sub("/+$", "", base_url), indicator, countries), collapse = "/")
+  query <- list()
+  if (!is.null(from) || !is.null(to)) {
+    first <- if (is.null(from)) 1980L else as.integer(substr(as.character(from), 1L, 4L))
+    last <- if (is.null(to)) as.integer(format(Sys.Date(), "%Y")) + 10L else as.integer(substr(as.character(to), 1L, 4L))
+    query$periods <- paste(seq.int(first, last), collapse = ",")
+  }
+  response <- .http_get_json(url, query = query)
+  .standardize_imf_datamapper(response, series_id, indicator, countries, label)
 }
 
 .sdmx_period_date <- function(period) {
@@ -112,7 +158,8 @@
 #' Retrieve Data From An SDMX Provider
 #'
 #' @param series_id Stable local series identifier.
-#' @param provider SDMX provider dialect: `oecd`, `ecb`, or `bis`.
+#' @param provider Provider dialect: `oecd`, `ecb`, `bis`, `eurostat`, or the
+#'   IMF DataMapper-compatible `imf` adapter.
 #' @param base_url Provider REST base URL.
 #' @param agency Optional SDMX agency identifier.
 #' @param dataflow SDMX dataflow identifier.
@@ -137,15 +184,27 @@ get_source_data_sdmx <- function(series_id, provider, base_url, agency = NULL,
                                  dimension_cols = NULL, label = NULL, frequency = NULL,
                                  from = NULL, to = NULL,
                                  last_n_observations = NULL) {
+  if (tolower(provider) == "imf") {
+    return(.get_source_data_imf_datamapper(
+      series_id, base_url, dataflow, key, label = label, from = from, to = to
+    ))
+  }
   url <- .sdmx_build_url(provider, base_url, agency, dataflow, version, key, flow_ref)
   query <- list()
   if (!is.null(format) && nzchar(format)) query$format <- format
-  if (!is.null(from)) query$startPeriod <- as.character(from)
-  if (!is.null(to)) query$endPeriod <- as.character(to)
+  if (tolower(provider) == "eurostat") {
+    filters <- character()
+    if (!is.null(from)) filters <- c(filters, paste0("ge:", from))
+    if (!is.null(to)) filters <- c(filters, paste0("le:", to))
+    if (length(filters) > 0L) query[["c[TIME_PERIOD]"]] <- paste(filters, collapse = "+")
+  } else {
+    if (!is.null(from)) query$startPeriod <- as.character(from)
+    if (!is.null(to)) query$endPeriod <- as.character(to)
+  }
   if (!is.null(last_n_observations)) {
     query$lastNObservations <- max(1L, as.integer(last_n_observations))
   }
-  if (tolower(provider) == "oecd") query$dimensionAtObservation <- "AllDimensions"
+  if (tolower(provider) == "oecd") query$dimension_at_observation <- "AllDimensions"
   response <- .http_request("GET", url, query = query, headers = c(Accept = accept))
   .standardize_sdmx_data(
     .read_sdmx_csv(response), series_id = series_id, provider = provider, key = key,

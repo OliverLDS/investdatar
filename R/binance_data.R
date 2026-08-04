@@ -20,6 +20,7 @@ get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
                                            start_time = NULL, end_time = NULL,
                                            limit = 1500L, tz = "UTC",
                                            paginate = TRUE) {
+  .require_suggested_package("binxr", "to retrieve Binance futures candles.")
   limit <- as.integer(limit)
   if (is.na(limit) || limit <= 0L) {
     stop("limit must be a positive integer.")
@@ -30,18 +31,14 @@ get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
   interval_seconds <- .parse_frequency(interval)$seconds
 
   fetch_page <- function(page_start_ms = NULL) {
-    query <- list(
+    binxr::futures_get_klines(
       symbol = symbol,
       interval = interval,
       startTime = page_start_ms,
       endTime = end_ms,
-      limit = limit
+      limit = limit,
+      config = binxr::config_futures()
     )
-    query <- query[!vapply(query, is.null, logical(1))]
-
-    res <- httr::GET("https://fapi.binance.com/fapi/v1/klines", query = query)
-    httr::stop_for_status(res)
-    jsonlite::fromJSON(httr::content(res, "text", encoding = "UTF-8"))
   }
 
   pages <- list()
@@ -57,17 +54,9 @@ get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
       break
     }
 
-    data.table::setnames(page_dt, c(
-      "open_time", "open", "high", "low", "close", "volume",
-      "close_time", "quote_asset_volume", "num_trades",
-      "taker_buy_base_vol", "taker_buy_quote_vol", "ignore"
-    ))
-
-    numeric_cols <- setdiff(names(page_dt), c("open_time", "close_time"))
-    page_dt[, (numeric_cols) := lapply(.SD, as.numeric), .SDcols = numeric_cols]
-    page_dt[, datetime := as.POSIXct(open_time / 1000, origin = "1970-01-01", tz = tz)]
-    page_dt[, close_time := as.POSIXct(close_time / 1000, origin = "1970-01-01", tz = tz)]
-    page_dt[, open_time := NULL]
+    if ("datetime_close" %in% names(page_dt)) data.table::setnames(page_dt, "datetime_close", "close_time")
+    page_dt[, datetime := as.POSIXct(datetime, tz = tz)]
+    if ("close_time" %in% names(page_dt)) page_dt[, close_time := as.POSIXct(close_time, tz = tz)]
     page_dt <- .standardize_market_ohlcv(
       page_dt,
       source = "binance",
@@ -115,27 +104,41 @@ get_source_data_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
 #' @param symbol Trading pair symbol.
 #' @param interval Candlestick interval.
 #' @param local_path Optional Binance storage path.
+#' @param storage Local storage mode: monolithic `"single"` or monthly
+#'   partitioned `"monthly"`.
+#' @param from,to Optional bounds used to prune monthly partitions before read.
 #'
 #' @return `data.table` or `NULL`.
 #' @export
-get_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m", local_path = NULL) {
+get_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m", local_path = NULL,
+                                     storage = c("single", "monthly"),
+                                     from = NULL, to = NULL) {
+  storage <- match.arg(storage)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "binance")
   }
-  .read_local_data_table(file.path(local_path, .binance_local_filename(symbol, interval)), sort_cols = "datetime")
+  local_file <- file.path(local_path, .binance_local_filename(symbol, interval))
+  if (storage == "monthly") {
+    return(get_local_data_partitioned(local_file, "datetime", from = from, to = to, order_cols = "datetime"))
+  }
+  .read_local_data_table(local_file, sort_cols = "datetime")
 }
 
 #' Synchronize Local Binance Kline Data
 #'
 #' @inheritParams get_source_data_binance_klines
 #' @param local_path Optional Binance storage path.
+#' @param storage Local storage mode: monolithic `"single"` or monthly
+#'   partitioned `"monthly"`.
 #'
 #' @return A sync result list.
 #' @export
 sync_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
                                       start_time = NULL, end_time = NULL,
                                       limit = 1500L, tz = "UTC",
-                                      paginate = TRUE, local_path = NULL) {
+                                      paginate = TRUE, local_path = NULL,
+                                      storage = c("single", "monthly")) {
+  storage <- match.arg(storage)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "binance", create = TRUE)
   }
@@ -152,13 +155,16 @@ sync_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
   )
   source_utime <- infer_source_utime_from_frequency(interval, reference_time = Sys.time(), tz = tz)
 
-  sync_local_data(
+  sync_fun <- if (storage == "monthly") sync_local_data_partitioned else sync_local_data
+  args <- list(
     new_data = new_dt,
     local_file_path = local_file_path,
     key_cols = c("symbol", "interval", "datetime"),
     order_cols = "datetime",
     source_utime = source_utime
   )
+  if (storage == "monthly") args$time_col <- "datetime"
+  do.call(sync_fun, args)
 }
 
 .normalize_binance_repair_windows <- function(windows) {
@@ -197,7 +203,9 @@ sync_local_binance_klines <- function(symbol = "ETHUSDT", interval = "1m",
 #' @export
 repair_local_binance_klines_gaps <- function(symbol = "ETHUSDT", interval = "1m",
                                              windows, limit = 1500L, tz = "UTC",
-                                             local_path = NULL) {
+                                             local_path = NULL,
+                                             storage = c("single", "monthly")) {
+  storage <- match.arg(storage)
   windows_dt <- .normalize_binance_repair_windows(windows)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "binance", create = TRUE)
@@ -215,11 +223,15 @@ repair_local_binance_klines_gaps <- function(symbol = "ETHUSDT", interval = "1m"
     )
   })
 
-  sync_local_data_batches(
-    batches = batches,
+  combined <- data.table::rbindlist(batches, use.names = TRUE, fill = TRUE)
+  sync_fun <- if (storage == "monthly") sync_local_data_partitioned else sync_local_data
+  args <- list(
+    new_data = combined,
     local_file_path = file.path(local_path, .binance_local_filename(symbol, interval)),
     key_cols = c("symbol", "interval", "datetime"),
     order_cols = "datetime",
     source_utime = infer_source_utime_from_frequency(interval, reference_time = Sys.time(), tz = tz)
   )
+  if (storage == "monthly") args$time_col <- "datetime"
+  do.call(sync_fun, args)
 }

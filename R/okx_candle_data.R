@@ -111,14 +111,24 @@ get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit =
 #' @param inst_id Instrument identifier.
 #' @param bar Candle interval.
 #' @param local_path Optional OKX storage path.
+#' @param storage Local storage mode: monolithic `"single"` or monthly
+#'   partitioned `"monthly"`.
+#' @param from,to Optional bounds used to prune monthly partitions before read.
 #'
 #' @return `data.table` or `NULL`.
 #' @export
-get_local_okx_candle <- function(inst_id, bar, local_path = NULL) {
+get_local_okx_candle <- function(inst_id, bar, local_path = NULL,
+                                 storage = c("single", "monthly"),
+                                 from = NULL, to = NULL) {
+  storage <- match.arg(storage)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "okx")
   }
-  .read_local_data_table(file.path(local_path, sprintf("%s_%s.rds", inst_id, bar)), sort_cols = "datetime")
+  local_file <- file.path(local_path, sprintf("%s_%s.rds", inst_id, bar))
+  if (storage == "monthly") {
+    return(get_local_data_partitioned(local_file, "datetime", from = from, to = to, order_cols = "datetime"))
+  }
+  .read_local_data_table(local_file, sort_cols = "datetime")
 }
 
 #' Synchronize Local OKX Candle Data
@@ -133,13 +143,17 @@ get_local_okx_candle <- function(inst_id, bar, local_path = NULL) {
 #' @param before Optional history cursor.
 #' @param limit Integer page size.
 #' @param tz Output time zone.
+#' @param storage Local storage mode: monolithic `"single"` or monthly
+#'   partitioned `"monthly"`.
 #'
 #' @return A sync result list.
 #' @export
 sync_local_okx_candle <- function(inst_id, bar, config = NULL, local_path = NULL,
                                   mode = c("latest", "history"), before = NULL,
-                                  limit = 100L, tz = "UTC") {
+                                  limit = 100L, tz = "UTC",
+                                  storage = c("single", "monthly")) {
   mode <- match.arg(mode)
+  storage <- match.arg(storage)
   config <- .get_api_config("okx", config = config)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "okx", create = TRUE)
@@ -154,13 +168,16 @@ sync_local_okx_candle <- function(inst_id, bar, config = NULL, local_path = NULL
     source_utime <- get_source_utime_okx_candle(bar = bar, tz = tz)
   }
 
-  sync_local_data(
+  sync_fun <- if (storage == "monthly") sync_local_data_partitioned else sync_local_data
+  args <- list(
     new_data = new_dt,
     local_file_path = local_file_path,
     key_cols = "datetime",
     order_cols = "datetime",
     source_utime = source_utime
   )
+  if (storage == "monthly") args$time_col <- "datetime"
+  do.call(sync_fun, args)
 }
 
 #' Repair Local OKX Candle Data From Multiple History Pages
@@ -174,11 +191,13 @@ sync_local_okx_candle <- function(inst_id, bar, config = NULL, local_path = NULL
 #' @return A sync result list.
 #' @export
 repair_local_okx_candle_gaps <- function(inst_id, bar, before, config = NULL, local_path = NULL,
-                                         limit = 100L, tz = "UTC") {
+                                         limit = 100L, tz = "UTC",
+                                         storage = c("single", "monthly")) {
   if (missing(before) || is.null(before) || length(before) == 0L) {
     stop("before must contain at least one OKX history pagination cursor.")
   }
   config <- .get_api_config("okx", config = config)
+  storage <- match.arg(storage)
   if (is.null(local_path)) {
     local_path <- get_source_data_path("crypto", subdir = "okx", create = TRUE)
   }
@@ -194,13 +213,17 @@ repair_local_okx_candle_gaps <- function(inst_id, bar, before, config = NULL, lo
     )
   })
 
-  sync_local_data_batches(
-    batches = batches,
+  combined <- data.table::rbindlist(batches, use.names = TRUE, fill = TRUE)
+  sync_fun <- if (storage == "monthly") sync_local_data_partitioned else sync_local_data
+  args <- list(
+    new_data = combined,
     local_file_path = file.path(local_path, sprintf("%s_%s.rds", inst_id, bar)),
     key_cols = "datetime",
     order_cols = "datetime",
     source_utime = NULL
   )
+  if (storage == "monthly") args$time_col <- "datetime"
+  do.call(sync_fun, args)
 }
 
 #' Detect Time Gaps In OKX Candle Data

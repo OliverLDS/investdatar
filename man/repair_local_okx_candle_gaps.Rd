@@ -11,7 +11,8 @@ repair_local_okx_candle_gaps(
   config = NULL,
   local_path = NULL,
   limit = 100L,
-  tz = "UTC"
+  tz = "UTC",
+  storage = c("single", "monthly")
 )
 }
 \arguments{
@@ -30,6 +31,9 @@ package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /
 \item{limit}{Integer page size.}
 
 \item{tz}{Output time zone.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
 }
 \value{
 A sync result list.

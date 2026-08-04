@@ -70,14 +70,14 @@ test_that("CFTC local sync overlaps recent reports and upserts revisions", {
   saveRDS(existing, file.path(local_dir, "tff_futures_only.rds"))
 
   res <- testthat::with_mocked_bindings(
-    get_source_data_cftc_cot = function(report_variant, report_id, dataset_id,
+    get_source_data_cftc_cot = function(report_variant, report_type, report_id, dataset_id,
                                         market_codes, from, to, page_size) {
       expect_equal(as.Date(from), as.Date("2026-07-14"))
       revised <- .cftc_test_rows("a", "2026-07-28")
       revised$open_interest_all <- "999"
       standardize(revised, report_id, report_variant, dataset_id)
     },
-    get_source_utime_cftc_cot = function(report_variant, dataset_id) {
+    get_source_utime_cftc_cot = function(report_variant, report_type, dataset_id) {
       as.POSIXct("2026-07-31 19:30:00", tz = "UTC")
     },
     investdatar::sync_local_cftc_cot(
@@ -123,10 +123,13 @@ test_that("CFTC registry batch sync returns standard summaries and run logs", {
   expect_equal(nrow(run$summary), 2L)
 })
 
-test_that("shipped CFTC registry pins both official TFF datasets", {
+test_that("shipped CFTC registry pins official TFF, disaggregated, and legacy datasets", {
   registry_path <- system.file("extdata", "config", "cftc_cot_registry.json", package = "investdatar")
   registry <- investdatar::get_cftc_cot_registry(registry_path)
 
-  expect_equal(registry$report_id, c("tff_futures_only", "tff_combined"))
-  expect_equal(registry$dataset_id, c("gpe5-46if", "yw9f-hn96"))
+  expect_equal(registry$report_type, rep(c("tff", "disaggregated", "legacy"), each = 2L))
+  expect_equal(
+    registry$dataset_id,
+    c("gpe5-46if", "yw9f-hn96", "72hh-3qpy", "kh3c-gbw2", "6dca-aqww", "jun7-fc8e")
+  )
 })

@@ -25,6 +25,7 @@ EIA:
 SEC:
   data_path: ./data/sec
   registry_file: ./config/sec_company_registry.json
+  frames_registry_file: ./config/sec_frames_registry.json
   # Identifiable contact is required, e.g. Name email@example.com.
   # user_agent: Your Name your_email@example.com
 
@@ -54,4 +55,18 @@ YahooFinance:
   registry_file: ./config/YahooFinance_ticker_registry.json
 
 AlphaVantage:
+  data_path: ./data/alphavantage
+  registry_file: ./config/alphavantage_series_registry.json
   note: API key is read from ALPHAVANTAGE_API_KEY
+
+BLS:
+  data_path: ./data/bls
+  registry_file: ./config/bls_series_registry.json
+
+BEA:
+  data_path: ./data/bea
+  registry_file: ./config/bea_series_registry.json
+
+Census:
+  data_path: ./data/census
+  registry_file: ./config/census_series_registry.json

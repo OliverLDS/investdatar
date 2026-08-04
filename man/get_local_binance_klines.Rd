@@ -7,7 +7,10 @@
 get_local_binance_klines(
   symbol = "ETHUSDT",
   interval = "1m",
-  local_path = NULL
+  local_path = NULL,
+  storage = c("single", "monthly"),
+  from = NULL,
+  to = NULL
 )
 }
 \arguments{
@@ -16,6 +19,11 @@ get_local_binance_klines(
 \item{interval}{Candlestick interval.}
 
 \item{local_path}{Optional Binance storage path.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
+
+\item{from, to}{Optional bounds used to prune monthly partitions before read.}
 }
 \value{
 \code{data.table} or \code{NULL}.

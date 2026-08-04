@@ -8,17 +8,21 @@ get_source_utime_crypto_derivatives(
   provider,
   dataset_type,
   symbol,
-  interval = NULL
+  interval = NULL,
+  config = NULL
 )
 }
 \arguments{
 \item{provider}{\code{binance} or \code{okx}.}
 
-\item{dataset_type}{\code{funding_rate} or \code{open_interest}.}
+\item{dataset_type}{Funding, open-interest, mark/index price, basis, or
+Binance long-short-ratio dataset identifier.}
 
 \item{symbol}{Provider instrument identifier.}
 
 \item{interval}{Required Binance open-interest period; otherwise a local label.}
+
+\item{config}{Optional exchange configuration.}
 }
 \value{
 UTC \code{POSIXct}, or \code{NULL}.

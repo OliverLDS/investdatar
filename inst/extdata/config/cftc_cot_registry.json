@@ -16,5 +16,41 @@
     "market_codes": null,
     "start": "2006-06-13",
     "active": true
+  },
+  {
+    "report_id": "disaggregated_futures_only",
+    "report_type": "disaggregated",
+    "report_variant": "futures_only",
+    "dataset_id": "72hh-3qpy",
+    "market_codes": null,
+    "start": "2006-06-13",
+    "active": true
+  },
+  {
+    "report_id": "disaggregated_combined",
+    "report_type": "disaggregated",
+    "report_variant": "combined",
+    "dataset_id": "kh3c-gbw2",
+    "market_codes": null,
+    "start": "2006-06-13",
+    "active": true
+  },
+  {
+    "report_id": "legacy_futures_only",
+    "report_type": "legacy",
+    "report_variant": "futures_only",
+    "dataset_id": "6dca-aqww",
+    "market_codes": null,
+    "start": "1986-01-01",
+    "active": true
+  },
+  {
+    "report_id": "legacy_combined",
+    "report_type": "legacy",
+    "report_variant": "combined",
+    "dataset_id": "jun7-fc8e",
+    "market_codes": null,
+    "start": "1986-01-01",
+    "active": true
   }
 ]

@@ -28,7 +28,8 @@ get_source_data_sdmx(
 \arguments{
 \item{series_id}{Stable local series identifier.}
 
-\item{provider}{SDMX provider dialect: \code{oecd}, \code{ecb}, or \code{bis}.}
+\item{provider}{Provider dialect: \code{oecd}, \code{ecb}, \code{bis}, \code{eurostat}, or the
+IMF DataMapper-compatible \code{imf} adapter.}
 
 \item{base_url}{Provider REST base URL.}
 

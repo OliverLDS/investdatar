@@ -23,6 +23,33 @@
   )
 }
 
+.sec_get_raw <- function(url, config = NULL, accept = "*/*") {
+  config <- .sec_api_config(config)
+  delay <- suppressWarnings(as.numeric(config$request_delay))
+  if (!is.na(delay) && delay > 0) Sys.sleep(delay)
+  .http_request(
+    "GET", url,
+    headers = c(
+      `User-Agent` = config$user_agent,
+      Accept = accept,
+      `Accept-Encoding` = "gzip, deflate"
+    )
+  )$content
+}
+
+.safe_write_raw <- function(content, path) {
+  dir.create(dirname(path), recursive = TRUE, showWarnings = FALSE)
+  temp_path <- tempfile(pattern = paste0(".", basename(path), "."), tmpdir = dirname(path))
+  on.exit(unlink(temp_path), add = TRUE)
+  con <- file(temp_path, open = "wb")
+  on.exit(close(con), add = TRUE)
+  writeBin(content, con)
+  close(con)
+  on.exit(NULL, add = FALSE)
+  if (!file.rename(temp_path, path)) stop("Could not move downloaded SEC file into place: ", path, call. = FALSE)
+  invisible(path)
+}
+
 .normalize_sec_cik <- function(cik, padded = FALSE) {
   if (length(cik) != 1L || is.na(cik)) {
     stop("cik must be one non-missing value.", call. = FALSE)

@@ -4,5 +4,19 @@
   {"provider":"binance","dataset_type":"open_interest","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC perpetual open interest","active":true},
   {"provider":"binance","dataset_type":"open_interest","symbol":"ETHUSDT","interval":"1h","start":null,"label":"Binance ETH perpetual open interest","active":true},
   {"provider":"okx","dataset_type":"funding_rate","symbol":"BTC-USDT-SWAP","interval":"funding","start":"2020-01-01","label":"OKX BTC perpetual funding rate","active":true},
-  {"provider":"okx","dataset_type":"funding_rate","symbol":"ETH-USDT-SWAP","interval":"funding","start":"2020-01-01","label":"OKX ETH perpetual funding rate","active":true}
+  {"provider":"okx","dataset_type":"funding_rate","symbol":"ETH-USDT-SWAP","interval":"funding","start":"2020-01-01","label":"OKX ETH perpetual funding rate","active":true},
+  {"provider":"binance","dataset_type":"mark_price","symbol":"BTCUSDT","interval":"1h","start":"2020-01-01","label":"Binance BTC perpetual mark price","active":true},
+  {"provider":"binance","dataset_type":"mark_price","symbol":"ETHUSDT","interval":"1h","start":"2020-01-01","label":"Binance ETH perpetual mark price","active":true},
+  {"provider":"binance","dataset_type":"index_price","symbol":"BTCUSDT","interval":"1h","start":"2020-01-01","label":"Binance BTC perpetual index price","active":true},
+  {"provider":"binance","dataset_type":"index_price","symbol":"ETHUSDT","interval":"1h","start":"2020-01-01","label":"Binance ETH perpetual index price","active":true},
+  {"provider":"binance","dataset_type":"basis","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC perpetual basis","active":true},
+  {"provider":"binance","dataset_type":"basis","symbol":"ETHUSDT","interval":"1h","start":null,"label":"Binance ETH perpetual basis","active":true},
+  {"provider":"binance","dataset_type":"global_long_short_ratio","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC global long-short account ratio","active":true},
+  {"provider":"binance","dataset_type":"global_long_short_ratio","symbol":"ETHUSDT","interval":"1h","start":null,"label":"Binance ETH global long-short account ratio","active":true},
+  {"provider":"binance","dataset_type":"top_long_short_account_ratio","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC top-trader account ratio","active":true},
+  {"provider":"binance","dataset_type":"top_long_short_position_ratio","symbol":"BTCUSDT","interval":"1h","start":null,"label":"Binance BTC top-trader position ratio","active":true},
+  {"provider":"okx","dataset_type":"mark_price","symbol":"BTC-USDT-SWAP","interval":"1H","start":"2020-01-01","label":"OKX BTC perpetual mark price","active":true},
+  {"provider":"okx","dataset_type":"mark_price","symbol":"ETH-USDT-SWAP","interval":"1H","start":"2020-01-01","label":"OKX ETH perpetual mark price","active":true},
+  {"provider":"okx","dataset_type":"index_price","symbol":"BTC-USDT","interval":"1H","start":"2020-01-01","label":"OKX BTC-USDT index price","active":true},
+  {"provider":"okx","dataset_type":"index_price","symbol":"ETH-USDT","interval":"1H","start":"2020-01-01","label":"OKX ETH-USDT index price","active":true}
 ]

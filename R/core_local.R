@@ -418,6 +418,173 @@ sync_local_data_batches <- function(batches, local_file_path, key_cols, order_co
   )
 }
 
+.partition_data_dir <- function(local_file_path) {
+  if (grepl("\\.rds$", local_file_path, ignore.case = TRUE)) {
+    sub("\\.rds$", ".parts", local_file_path, ignore.case = TRUE)
+  } else {
+    paste0(local_file_path, ".parts")
+  }
+}
+
+.monthly_partition_id <- function(x, tz = "UTC") {
+  format(as.POSIXct(x, tz = tz), "%Y-%m", tz = tz)
+}
+
+.partition_file_paths <- function(local_file_path) {
+  partition_dir <- .partition_data_dir(local_file_path)
+  if (!dir.exists(partition_dir)) return(character())
+  sort(list.files(partition_dir, pattern = "^[0-9]{4}-[0-9]{2}\\.rds$", full.names = TRUE))
+}
+
+.filter_partition_paths <- function(paths, from = NULL, to = NULL, tz = "UTC") {
+  if (length(paths) == 0L || (is.null(from) && is.null(to))) return(paths)
+  ids <- sub("\\.rds$", "", basename(paths))
+  if (!is.null(from)) ids_from <- .monthly_partition_id(from, tz = tz) else ids_from <- min(ids)
+  if (!is.null(to)) ids_to <- .monthly_partition_id(to, tz = tz) else ids_to <- max(ids)
+  paths[ids >= ids_from & ids <= ids_to]
+}
+
+#' Read Monthly Partitioned Local Data
+#'
+#' Reads a dataset stored as monthly RDS partitions. Time bounds are applied to
+#' partition discovery before files are loaded. If no partition directory exists,
+#' an existing monolithic RDS file is read for backward compatibility.
+#'
+#' @param local_file_path Virtual monolithic `.rds` path used to derive the
+#'   sibling `.parts` directory and metadata sidecar.
+#' @param time_col Name of the partition timestamp column.
+#' @param from,to Optional inclusive time bounds.
+#' @param order_cols Optional output ordering columns.
+#' @param tz Time zone used to determine month boundaries.
+#'
+#' @return A `data.table`, or `NULL` when no local data exists.
+#' @export
+get_local_data_partitioned <- function(local_file_path, time_col,
+                                       from = NULL, to = NULL,
+                                       order_cols = time_col, tz = "UTC") {
+  all_paths <- .partition_file_paths(local_file_path)
+  paths <- .filter_partition_paths(all_paths, from = from, to = to, tz = tz)
+  if (length(paths) == 0L) {
+    if (length(all_paths) > 0L) {
+      dt <- data.table::as.data.table(readRDS(all_paths[[1L]]))[0]
+    } else {
+      dt <- .as_data_table(.safe_read_rds(local_file_path, default = NULL))
+    }
+  } else {
+    dt <- data.table::rbindlist(lapply(paths, readRDS), use.names = TRUE, fill = TRUE)
+  }
+  if (is.null(dt)) return(NULL)
+  if (!time_col %in% names(dt)) stop("Partitioned data is missing time_col: ", time_col, call. = FALSE)
+  if (!is.null(from)) dt <- dt[get(time_col) >= as.POSIXct(from, tz = tz)]
+  if (!is.null(to)) dt <- dt[get(time_col) <= as.POSIXct(to, tz = tz)]
+  if (length(order_cols) > 0L && all(order_cols %in% names(dt))) data.table::setorderv(dt, order_cols)
+  dt[]
+}
+
+.write_monthly_partitions <- function(dt, local_file_path, time_col, key_cols,
+                                      order_cols, tz = "UTC") {
+  if (is.null(dt) || nrow(dt) == 0L) return(integer())
+  partition_dir <- .partition_data_dir(local_file_path)
+  dir.create(partition_dir, recursive = TRUE, showWarnings = FALSE)
+  dt <- data.table::copy(dt)
+  data.table::set(dt, j = "partition_id__", value = .monthly_partition_id(dt[[time_col]], tz = tz))
+  ids <- sort(unique(dt[["partition_id__"]]))
+  rows <- stats::setNames(integer(length(ids)), ids)
+  for (id in ids) {
+    part <- dt[dt[["partition_id__"]] == id]
+    data.table::set(part, j = "partition_id__", value = NULL)
+    path <- file.path(partition_dir, paste0(id, ".rds"))
+    old <- .as_data_table(.safe_read_rds(path, default = NULL))
+    merged <- .upsert_rows_by_key(old, part, key_cols = key_cols, order_cols = order_cols)
+    .safe_save_rds(merged, path)
+    rows[[id]] <- nrow(merged)
+  }
+  rows
+}
+
+#' Synchronize Monthly Partitioned Local Data
+#'
+#' Upserts only monthly partitions touched by `new_data`. On the first
+#' partitioned sync, an existing monolithic RDS cache is copied into monthly
+#' partitions so callers can opt in without a separate migration step.
+#'
+#' @inheritParams sync_local_data
+#' @param time_col Name of the timestamp column used for monthly partitioning.
+#' @param tz Time zone used to determine month boundaries.
+#'
+#' @return A sync result list. Its `data` element contains the touched rows,
+#'   rather than the complete potentially large dataset.
+#' @export
+sync_local_data_partitioned <- function(new_data, local_file_path, time_col,
+                                        key_cols, order_cols = key_cols,
+                                        source_utime = NULL,
+                                        local_updated_at = Sys.time(), tz = "UTC") {
+  new_dt <- .as_data_table(new_data)
+  if (is.null(new_dt)) {
+    return(list(updated = FALSE, reason = "new_data_is_null", data = NULL, file_path = local_file_path))
+  }
+  stopifnot(all(c(time_col, key_cols) %in% names(new_dt)))
+  new_dt <- unique(new_dt, by = key_cols)
+  if (nrow(new_dt) > 0L && any(is.na(new_dt[[time_col]]))) {
+    stop("Partition timestamp column contains missing values: ", time_col, call. = FALSE)
+  }
+
+  partition_paths <- .partition_file_paths(local_file_path)
+  if (length(partition_paths) == 0L && file.exists(local_file_path)) {
+    legacy <- .as_data_table(readRDS(local_file_path))
+    .write_monthly_partitions(
+      legacy, local_file_path, time_col = time_col, key_cols = key_cols,
+      order_cols = order_cols, tz = tz
+    )
+  }
+
+  old_touched <- if (nrow(new_dt) == 0L) {
+    new_dt[0]
+  } else {
+    ids <- unique(.monthly_partition_id(new_dt[[time_col]], tz = tz))
+    paths <- file.path(.partition_data_dir(local_file_path), paste0(ids, ".rds"))
+    paths <- paths[file.exists(paths)]
+    if (length(paths) == 0L) new_dt[0] else data.table::rbindlist(lapply(paths, readRDS), use.names = TRUE, fill = TRUE)
+  }
+  new_rows <- .find_new_rows(new_dt, key_cols = key_cols, old_dt = old_touched)
+  changed_existing <- .has_changed_rows(old_touched, new_dt, key_cols = key_cols, order_cols = order_cols)
+  updated <- nrow(new_rows) > 0L || changed_existing
+
+  partition_rows <- integer()
+  if (nrow(new_dt) > 0L && updated) {
+    partition_rows <- .write_monthly_partitions(
+      new_dt, local_file_path, time_col = time_col, key_cols = key_cols,
+      order_cols = order_cols, tz = tz
+    )
+  }
+  meta_path <- .meta_file_path(local_file_path)
+  old_meta <- .safe_read_rds(meta_path, default = list())
+  known_rows <- old_meta$partition_rows %||% integer()
+  if (length(partition_rows) > 0L) known_rows[names(partition_rows)] <- partition_rows
+  missing_ids <- setdiff(
+    sub("\\.rds$", "", basename(.partition_file_paths(local_file_path))),
+    names(known_rows)
+  )
+  if (length(missing_ids) > 0L) {
+    missing_paths <- file.path(.partition_data_dir(local_file_path), paste0(missing_ids, ".rds"))
+    known_rows[missing_ids] <- vapply(missing_paths, function(path) nrow(readRDS(path)), integer(1))
+  }
+  meta <- list(
+    storage = "monthly", partition = "month", partition_time_col = time_col,
+    partition_rows = known_rows,
+    local_updated_at = as.POSIXct(local_updated_at, tz = "UTC"),
+    source_updated_at = if (is.null(source_utime)) NULL else as.POSIXct(source_utime, tz = "UTC"),
+    n_rows = sum(known_rows), key_cols = key_cols
+  )
+  .safe_save_rds(meta, meta_path)
+
+  list(
+    updated = updated, n_new_rows = nrow(new_rows), n_rows = meta$n_rows,
+    data = new_dt, file_path = local_file_path, partition_path = .partition_data_dir(local_file_path),
+    meta_path = meta_path
+  )
+}
+
 .parse_candle_frequency <- function(tag) {
   m <- regexec("^([0-9]+)([smhdw])$", tag, ignore.case = TRUE)
   parts <- regmatches(tag, m)[[1]]

@@ -1,3 +1,18 @@
+# investdatar 0.1.5
+
+- Added optional monthly partitioned OKX and Binance candle storage with
+  touched-partition upserts and bounded reads; Binance and OKX adapters now
+  consume `binxr` and `okxr` for their supported exchange requests.
+- Expanded crypto derivatives to mark/index prices, basis, long-short ratios,
+  complete Binance open-interest pagination, and explicit public liquidation
+  event ingestion.
+- Expanded SDMX coverage to Eurostat and IMF and broadened ECB, BIS, and OECD
+  registry seeds.
+- Added SEC XBRL Frames, selected filing-document caching, and opt-in bulk
+  archives; broadened CFTC and Treasury Fiscal Data registries.
+- Added a provider-neutral fund-holdings schema, full Alpha Vantage cache and
+  registry parity, and selective direct BLS, BEA, and Census modules.
+
 # investdatar 0.1.4
 
 - Added a shared HTTP layer with retry, timeout, user-agent, structured error,

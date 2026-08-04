@@ -224,3 +224,49 @@ test_that("SEC API requires an identifiable user agent", {
     "SEC user agent is missing"
   )
 })
+
+test_that("SEC Frames normalize cross-company observations", {
+  fixture <- list(data = data.frame(
+    accn = "0000320193-25-000079", cik = 320193, entityName = "Apple Inc.",
+    loc = "US-CA", start = "2025-01-01", end = "2025-03-31",
+    val = 100, fy = 2025, fp = "Q2", form = "10-Q", filed = "2025-05-02"
+  ))
+  dt <- testthat::with_mocked_bindings(
+    .sec_get_json = function(url, config = NULL) fixture,
+    investdatar::get_source_data_sec_frame(
+      "us-gaap", "Assets", "USD", "CY2025Q1I", config = .sec_test_config()
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(dt$concept, "Assets")
+  expect_equal(dt$cik, "320193")
+  expect_s3_class(dt$end, "Date")
+  expect_equal(dt$value, 100)
+})
+
+test_that("selected SEC filing documents are cached without repeated downloads", {
+  local_dir <- withr::local_tempdir()
+  raw_calls <- 0L
+  result <- testthat::with_mocked_bindings(
+    .sec_get_raw = function(url, config = NULL, accept = "*/*") {
+      raw_calls <<- raw_calls + 1L
+      charToRaw("<html>filing</html>")
+    },
+    {
+      first <- investdatar::sync_local_sec_filing_document(
+        320193, "0000320193-25-000079", "aapl-20250329.htm",
+        local_path = local_dir, config = .sec_test_config()
+      )
+      second <- investdatar::sync_local_sec_filing_document(
+        320193, "0000320193-25-000079", "aapl-20250329.htm",
+        local_path = local_dir, config = .sec_test_config()
+      )
+      list(first = first, second = second)
+    },
+    .package = "investdatar"
+  )
+  expect_true(result$first$updated)
+  expect_false(result$second$updated)
+  expect_equal(raw_calls, 1L)
+  expect_true(file.exists(result$first$file_path))
+})

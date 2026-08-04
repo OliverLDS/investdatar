@@ -4,7 +4,14 @@
 \alias{get_local_okx_candle}
 \title{Get Local OKX Candle Data}
 \usage{
-get_local_okx_candle(inst_id, bar, local_path = NULL)
+get_local_okx_candle(
+  inst_id,
+  bar,
+  local_path = NULL,
+  storage = c("single", "monthly"),
+  from = NULL,
+  to = NULL
+)
 }
 \arguments{
 \item{inst_id}{Instrument identifier.}
@@ -12,6 +19,11 @@ get_local_okx_candle(inst_id, bar, local_path = NULL)
 \item{bar}{Candle interval.}
 
 \item{local_path}{Optional OKX storage path.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
+
+\item{from, to}{Optional bounds used to prune monthly partitions before read.}
 }
 \value{
 \code{data.table} or \code{NULL}.

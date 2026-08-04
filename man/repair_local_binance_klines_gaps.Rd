@@ -10,7 +10,8 @@ repair_local_binance_klines_gaps(
   windows,
   limit = 1500L,
   tz = "UTC",
-  local_path = NULL
+  local_path = NULL,
+  storage = c("single", "monthly")
 )
 }
 \arguments{
@@ -26,6 +27,9 @@ columns, or a list of objects containing those fields.}
 \item{tz}{Time zone applied to returned timestamps.}
 
 \item{local_path}{Optional Binance storage path.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
 }
 \value{
 A sync result list.

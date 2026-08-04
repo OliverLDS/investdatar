@@ -9,19 +9,28 @@ get_local_crypto_derivatives(
   dataset_type,
   symbol,
   interval = NULL,
-  local_path = NULL
+  local_path = NULL,
+  storage = c("single", "monthly"),
+  from = NULL,
+  to = NULL
 )
 }
 \arguments{
 \item{provider}{\code{binance} or \code{okx}.}
 
-\item{dataset_type}{\code{funding_rate} or \code{open_interest}.}
+\item{dataset_type}{Funding, open-interest, mark/index price, basis, or
+Binance long-short-ratio dataset identifier.}
 
 \item{symbol}{Provider instrument identifier.}
 
 \item{interval}{Required Binance open-interest period; otherwise a local label.}
 
 \item{local_path}{Optional derivatives storage directory.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
+
+\item{from, to}{Optional inclusive UTC time bounds.}
 }
 \value{
 A \code{data.table}, or \code{NULL}.

@@ -20,5 +20,60 @@
     "start": "2005-10-03",
     "label": "Daily Treasury Statement Operating Cash Balance",
     "active": true
+  },
+  {
+    "dataset_id": "treasury_auctions",
+    "endpoint": "v1/accounting/od/auctions_query",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "cusip", "auction_date"],
+    "fields": null,
+    "frequency": "as_needed",
+    "start": "1979-11-15",
+    "label": "Treasury Securities Auctions",
+    "active": true
+  },
+  {
+    "dataset_id": "monthly_receipts",
+    "endpoint": "v1/accounting/mts/mts_table_4",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "classification_id", "src_line_nbr"],
+    "fields": null,
+    "frequency": "monthly",
+    "start": "2015-01-31",
+    "label": "Monthly Treasury Statement Receipts",
+    "active": true
+  },
+  {
+    "dataset_id": "monthly_outlays",
+    "endpoint": "v1/accounting/mts/mts_table_5",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "classification_id", "src_line_nbr"],
+    "fields": null,
+    "frequency": "monthly",
+    "start": "2015-01-31",
+    "label": "Monthly Treasury Statement Outlays",
+    "active": true
+  },
+  {
+    "dataset_id": "interest_expense",
+    "endpoint": "v2/accounting/od/interest_expense",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "expense_catg_desc", "expense_group_desc", "expense_type_desc", "src_line_nbr"],
+    "fields": null,
+    "frequency": "monthly",
+    "start": "2010-01-31",
+    "label": "Interest Expense on the Public Debt Outstanding",
+    "active": true
+  },
+  {
+    "dataset_id": "treasury_securities_outstanding",
+    "endpoint": "v1/debt/mspd/mspd_table_1",
+    "date_col": "record_date",
+    "key_cols": ["record_date", "security_type_desc", "security_class_desc"],
+    "fields": null,
+    "frequency": "monthly",
+    "start": "2001-01-31",
+    "label": "Summary of Treasury Securities Outstanding",
+    "active": true
   }
 ]

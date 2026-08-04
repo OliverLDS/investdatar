@@ -6,11 +6,13 @@
   sprintf("investdatar/%s", version)
 }
 
-.http_perform_once <- function(method, url, query, headers, timeout_seconds) {
+.http_perform_once <- function(method, url, query, headers, timeout_seconds, body = NULL, encode = "json") {
   response <- httr::VERB(
     verb = method,
     url = url,
     query = query,
+    body = body,
+    encode = encode,
     httr::add_headers(.headers = headers),
     httr::timeout(timeout_seconds)
   )
@@ -70,6 +72,7 @@
 }
 
 .http_request <- function(method = "GET", url, query = NULL, headers = character(),
+                          body = NULL, encode = "json",
                           timeout_seconds = 30, max_attempts = 3L,
                           retry_status = c(429L, 500L, 502L, 503L, 504L)) {
   method <- toupper(method)
@@ -86,7 +89,9 @@
         url = url,
         query = query,
         headers = headers,
-        timeout_seconds = timeout_seconds
+        timeout_seconds = timeout_seconds,
+        body = body,
+        encode = encode
       ),
       error = function(e) {
         transport_error <<- e
@@ -120,5 +125,10 @@
 
 .http_get_json <- function(url, query = NULL, headers = character(), ...) {
   response <- .http_request("GET", url, query = query, headers = headers, ...)
+  jsonlite::fromJSON(.http_response_text(response), simplifyVector = TRUE)
+}
+
+.http_post_json <- function(url, body, query = NULL, headers = character(), ...) {
+  response <- .http_request("POST", url, query = query, headers = headers, body = body, encode = "json", ...)
   jsonlite::fromJSON(.http_response_text(response), simplifyVector = TRUE)
 }

@@ -22,6 +22,32 @@ test_that("Binance funding and open interest normalize to one schema", {
   expect_true(is.na(oi$funding_rate))
 })
 
+test_that("price, basis, ratio, and liquidation datasets normalize", {
+  normalize <- getFromNamespace(".standardize_crypto_derivatives", "investdatar")
+  mark <- normalize(
+    data.table::data.table(datetime = as.POSIXct("2026-01-01", tz = "UTC"), close = "95000"),
+    "binance", "mark_price", "BTCUSDT", "1h"
+  )
+  basis <- normalize(
+    data.table::data.table(timestamp = 1735689600000, basis = "10", basisRate = "0.001", annualizedBasisRate = "0.365", indexPrice = "95000", futuresPrice = "95010"),
+    "binance", "basis", "BTCUSDT", "1h"
+  )
+  ratio <- normalize(
+    data.table::data.table(timestamp = 1735689600000, longShortRatio = "1.2", longAccount = "0.55", shortAccount = "0.45"),
+    "binance", "global_long_short_ratio", "BTCUSDT", "1h"
+  )
+  liquidation <- normalize(
+    data.table::data.table(time = 1735689600000, averagePrice = "94000", executedQty = "2"),
+    "binance", "liquidation", "BTCUSDT", "event"
+  )
+
+  expect_equal(mark$value, 95000)
+  expect_equal(basis$value, 0.001)
+  expect_equal(basis$annualized_basis_rate, 0.365)
+  expect_equal(ratio$value, 1.2)
+  expect_equal(liquidation$value, 2)
+})
+
 test_that("OKX funding history paginates backward and honors lower bound", {
   calls <- list()
   from <- as.POSIXct("2025-01-01 00:00:00", tz = "UTC")
@@ -136,11 +162,15 @@ test_that("crypto derivatives batch writes common summary and run log", {
   expect_equal(investdatar::get_latest_sync_run("crypto_derivatives", local_dir)$source_id, "crypto_derivatives")
 })
 
-test_that("shipped derivatives registry covers BTC and ETH across historical datasets", {
+test_that("shipped derivatives registry covers the high-value historical datasets", {
   path <- system.file("extdata", "config", "crypto_derivatives_registry.json", package = "investdatar")
   registry <- investdatar::get_crypto_derivatives_registry(path)
-  expect_equal(nrow(registry), 6L)
+  expect_equal(nrow(registry), 20L)
   expect_setequal(registry$provider, c("binance", "okx"))
-  expect_setequal(registry$dataset_type, c("funding_rate", "open_interest"))
+  expect_true(all(c(
+    "funding_rate", "open_interest", "mark_price", "index_price", "basis",
+    "global_long_short_ratio", "top_long_short_account_ratio",
+    "top_long_short_position_ratio"
+  ) %in% registry$dataset_type))
   expect_true(all(registry$active))
 })

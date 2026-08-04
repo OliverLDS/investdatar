@@ -6,6 +6,7 @@
 \usage{
 sync_local_cftc_cot(
   report_variant = c("futures_only", "combined"),
+  report_type = "tff",
   report_id = NULL,
   dataset_id = NULL,
   market_codes = NULL,
@@ -18,6 +19,8 @@ sync_local_cftc_cot(
 }
 \arguments{
 \item{report_variant}{Report variant: \code{"futures_only"} or \code{"combined"}.}
+
+\item{report_type}{Report family: \code{"tff"}, \code{"disaggregated"}, or \code{"legacy"}.}
 
 \item{report_id}{Stable local report identifier.}
 

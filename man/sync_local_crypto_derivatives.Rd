@@ -13,13 +13,16 @@ sync_local_crypto_derivatives(
   to = NULL,
   limit = NULL,
   local_path = NULL,
-  overlap_days = 2L
+  overlap_days = 2L,
+  config = NULL,
+  storage = c("single", "monthly")
 )
 }
 \arguments{
 \item{provider}{\code{binance} or \code{okx}.}
 
-\item{dataset_type}{\code{funding_rate} or \code{open_interest}.}
+\item{dataset_type}{Funding, open-interest, mark/index price, basis, or
+Binance long-short-ratio dataset identifier.}
 
 \item{symbol}{Provider instrument identifier.}
 
@@ -32,6 +35,11 @@ sync_local_crypto_derivatives(
 \item{local_path}{Optional derivatives storage directory.}
 
 \item{overlap_days}{Days re-fetched before the latest local observation.}
+
+\item{config}{Optional exchange configuration.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
 }
 \value{
 A local synchronization result list.

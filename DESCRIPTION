@@ -1,6 +1,6 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.1.4
+Version: 0.1.5
 Author: Oliver Zhou
 Maintainer: Oliver Zhou <oliver.yxzhou@gmail.com>
 Authors@R: 
@@ -28,6 +28,7 @@ Imports:
     xml2,
     yaml
 Suggests:
+    binxr,
     okxr,
     quantmod,
     testthat (>= 3.0.0),
@@ -36,6 +37,7 @@ Suggests:
     withr,
     zoo
 Remotes:
+    OliverLDS/binxr,
     OliverLDS/okxr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)

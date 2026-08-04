@@ -12,7 +12,8 @@ sync_local_binance_klines(
   limit = 1500L,
   tz = "UTC",
   paginate = TRUE,
-  local_path = NULL
+  local_path = NULL,
+  storage = c("single", "monthly")
 )
 }
 \arguments{
@@ -31,6 +32,9 @@ sync_local_binance_klines(
 \item{paginate}{Logical. Request multiple pages when needed.}
 
 \item{local_path}{Optional Binance storage path.}
+
+\item{storage}{Local storage mode: monolithic \code{"single"} or monthly
+partitioned \code{"monthly"}.}
 }
 \value{
 A sync result list.

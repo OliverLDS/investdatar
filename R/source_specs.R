@@ -121,6 +121,27 @@ get_source_spec <- function(source) {
         detect_gaps = "detect_time_gaps"
       )
     ),
+    bls = .new_source_spec(
+      source_id = "bls", config_key = "BLS", local_path_source = "BLS",
+      resource_type = "single_series",
+      schema = list(time_col = "date", key_cols = c("series_id", "period"), value_cols = "value"),
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = TRUE, gap_detection = TRUE, sync = TRUE),
+      functions = list(fetch = "get_source_data_bls", sync = "sync_local_bls_data", sync_registry = "sync_all_bls_registry_data", read_local = "get_local_bls_data", describe = "describe_bls_data", detect_gaps = "detect_time_gaps")
+    ),
+    bea = .new_source_spec(
+      source_id = "bea", config_key = "BEA", local_path_source = "BEA",
+      resource_type = "regional_panel",
+      schema = list(time_col = "date", key_cols = c("series_id", "geo_id", "period"), value_cols = "value"),
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
+      functions = list(fetch = "get_source_data_bea", sync = "sync_local_bea_data", sync_registry = "sync_all_bea_registry_data", read_local = "get_local_bea_data", describe = "describe_bea_data", detect_gaps = "detect_time_gaps")
+    ),
+    census = .new_source_spec(
+      source_id = "census", config_key = "Census", local_path_source = "Census",
+      resource_type = "economic_indicator",
+      schema = list(time_col = "date", key_cols = c("series_id", "period"), value_cols = "value"),
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
+      functions = list(fetch = "get_source_data_census", sync = "sync_local_census_data", sync_registry = "sync_all_census_registry_data", read_local = "get_local_census_data", describe = "describe_census_data", detect_gaps = "detect_time_gaps")
+    ),
     sec_submissions = .new_source_spec(
       source_id = "sec_submissions",
       config_key = "SEC",
@@ -136,6 +157,13 @@ get_source_spec <- function(source) {
         read_local = "get_local_sec_submissions",
         describe = "describe_sec_submissions"
       )
+    ),
+    sec_frames = .new_source_spec(
+      source_id = "sec_frames", config_key = "SEC", local_path_source = "SEC/frames",
+      resource_type = "cross_company_fact",
+      schema = list(time_col = "end", key_cols = c("taxonomy", "concept", "unit", "frame", "cik", "accession_number"), value_cols = "value"),
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = FALSE, sync = TRUE),
+      functions = list(fetch = "get_source_data_sec_frame", sync = "sync_local_sec_frame", sync_registry = "sync_all_sec_frames_registry_data", read_local = "get_local_sec_frame", describe = "describe_sec_frame")
     ),
     sec_companyfacts = .new_source_spec(
       source_id = "sec_companyfacts",
@@ -198,11 +226,15 @@ get_source_spec <- function(source) {
     alphavantage = .new_source_spec(
       source_id = "alphavantage",
       config_key = "AlphaVantage",
-      local_path_source = NULL,
+      local_path_source = "AlphaVantage",
       resource_type = "market_ohlcv",
       schema = list(time_col = "datetime", key_cols = c("symbol", "interval", "datetime"), value_cols = c("open", "high", "low", "close", "volume")),
-      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = FALSE),
-      functions = list(fetch = "get_source_data_alphavantage_ts_daily", describe = "describe_alphavantage_data", detect_gaps = "detect_time_gaps")
+      capabilities = list(source_utime = FALSE, inferred_utime = TRUE, pagination = FALSE, gap_detection = TRUE, sync = TRUE),
+      functions = list(
+        fetch = "get_source_data_alphavantage_ts_daily", sync = "sync_local_alphavantage_data",
+        sync_registry = "sync_all_alphavantage_registry_data", read_local = "get_local_alphavantage_data",
+        describe = "describe_alphavantage_data", detect_gaps = "detect_time_gaps"
+      )
     ),
     quantmod = .new_source_spec(
       source_id = "quantmod",
@@ -310,8 +342,10 @@ get_source_spec <- function(source) {
 #' @return Named list of `investdatar_source_spec` objects.
 #' @export
 list_source_specs <- function() {
+  sources <- c("fred", "wbstats", "treasury", "cftc", "fiscaldata", "eia", "bls", "bea", "census",
+               "sec_submissions", "sec_companyfacts", "sec_frames", "sdmx", "rss", "ishare", "alphavantage",
+               "quantmod", "okx", "binance", "crypto_derivatives")
   stats::setNames(
-    lapply(c("fred", "wbstats", "treasury", "cftc", "fiscaldata", "eia", "sec_submissions", "sec_companyfacts", "sdmx", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance", "crypto_derivatives"), get_source_spec),
-    c("fred", "wbstats", "treasury", "cftc", "fiscaldata", "eia", "sec_submissions", "sec_companyfacts", "sdmx", "rss", "ishare", "alphavantage", "quantmod", "okx", "binance", "crypto_derivatives")
+    lapply(sources, get_source_spec), sources
   )
 }

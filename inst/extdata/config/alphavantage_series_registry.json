@@ -1,0 +1,12 @@
+[
+  {
+    "symbol": "AAPL",
+    "label": "Apple Inc.",
+    "active": true
+  },
+  {
+    "symbol": "MSFT",
+    "label": "Microsoft Corp.",
+    "active": true
+  }
+]

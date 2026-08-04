@@ -1,5 +1,18 @@
-.cftc_cot_dataset_map <- function() {
-  c(futures_only = "gpe5-46if", combined = "yw9f-hn96")
+.cftc_cot_dataset_map <- function(report_type = "tff") {
+  maps <- list(
+    tff = c(futures_only = "gpe5-46if", combined = "yw9f-hn96"),
+    disaggregated = c(futures_only = "72hh-3qpy", combined = "kh3c-gbw2"),
+    legacy = c(futures_only = "6dca-aqww", combined = "jun7-fc8e")
+  )
+  maps[[.normalize_cftc_report_type(report_type)]]
+}
+
+.normalize_cftc_report_type <- function(report_type) {
+  value <- tolower(trimws(as.character(report_type)))
+  aliases <- c(tff = "tff", financial = "tff", disaggregated = "disaggregated", dcot = "disaggregated", legacy = "legacy")
+  out <- unname(aliases[[value]])
+  if (is.null(out)) stop("Unsupported CFTC COT report type: ", report_type, call. = FALSE)
+  out
 }
 
 .normalize_cftc_report_variant <- function(report_variant) {
@@ -49,7 +62,7 @@
   if (length(clauses) == 0L) NULL else paste(clauses, collapse = " AND ")
 }
 
-.standardize_cftc_cot <- function(data, report_id, report_variant, dataset_id) {
+.standardize_cftc_cot <- function(data, report_id, report_variant, dataset_id, report_type = "tff") {
   dt <- data.table::as.data.table(data)
   if (nrow(dt) == 0L) {
     return(data.table::data.table(
@@ -71,7 +84,7 @@
   }
 
   numeric_cols <- grep(
-    "^(open_interest|dealer_positions|asset_mgr_positions|lev_money_positions|other_rept_positions|tot_rept_positions|nonrept_positions|change_in_|pct_of_|traders_|conc_)",
+    "^(open_interest|dealer_|asset_mgr_|lev_money_|other_rept_|tot_rept_|nonrept_|prod_merc_|swap_|m_money_|noncomm_|comm_|change_in_|pct_of_|traders_|conc_)",
     names(dt),
     value = TRUE
   )
@@ -82,7 +95,7 @@
   dt[, `:=`(
     source = "cftc",
     report_id = as.character(report_id),
-    report_type = "tff",
+    report_type = report_type,
     report_variant = report_variant,
     dataset_id = dataset_id
   )]
@@ -96,11 +109,12 @@
   dt[]
 }
 
-#' Retrieve CFTC Traders In Financial Futures Data
+#' Retrieve CFTC Commitments Of Traders Data
 #'
-#' Retrieves a futures-only or futures-and-options-combined Traders in
-#' Financial Futures report from the CFTC Public Reporting Environment.
+#' Retrieves TFF, Disaggregated, or Legacy reports from the CFTC Public
+#' Reporting Environment.
 #'
+#' @param report_type Report family: `"tff"`, `"disaggregated"`, or `"legacy"`.
 #' @param report_variant Report variant: `"futures_only"` or `"combined"`.
 #' @param report_id Stable local report identifier.
 #' @param dataset_id Optional official Socrata dataset identifier.
@@ -112,15 +126,17 @@
 #' @return A standardized wide `data.table`, one row per market and report date.
 #' @export
 get_source_data_cftc_cot <- function(report_variant = c("futures_only", "combined"),
+                                     report_type = "tff",
                                      report_id = NULL, dataset_id = NULL,
                                      market_codes = NULL, from = NULL, to = NULL,
                                      page_size = 5000L, max_pages = Inf) {
   report_variant <- .normalize_cftc_report_variant(match.arg(report_variant))
+  report_type <- .normalize_cftc_report_type(report_type)
   if (is.null(dataset_id) || !nzchar(dataset_id)) {
-    dataset_id <- .cftc_cot_dataset_map()[[report_variant]]
+    dataset_id <- .cftc_cot_dataset_map(report_type)[[report_variant]]
   }
   if (is.null(report_id) || !nzchar(report_id)) {
-    report_id <- paste0("tff_", report_variant)
+    report_id <- paste0(report_type, "_", report_variant)
   }
   page_size <- max(1L, min(as.integer(page_size), 50000L))
   where <- .cftc_cot_where(market_codes = market_codes, from = from, to = to)
@@ -145,7 +161,7 @@ get_source_data_cftc_cot <- function(report_variant = c("futures_only", "combine
   }
 
   combined <- if (length(pages) == 0L) data.table::data.table() else data.table::rbindlist(pages, use.names = TRUE, fill = TRUE)
-  .standardize_cftc_cot(combined, report_id = report_id, report_variant = report_variant, dataset_id = dataset_id)
+  .standardize_cftc_cot(combined, report_id = report_id, report_type = report_type, report_variant = report_variant, dataset_id = dataset_id)
 }
 
 #' Get CFTC Dataset Update Time
@@ -154,10 +170,11 @@ get_source_data_cftc_cot <- function(report_variant = c("futures_only", "combine
 #'
 #' @return A UTC `POSIXct` update time, or `NULL` when unavailable.
 #' @export
-get_source_utime_cftc_cot <- function(report_variant = c("futures_only", "combined"), dataset_id = NULL) {
+get_source_utime_cftc_cot <- function(report_variant = c("futures_only", "combined"), report_type = "tff", dataset_id = NULL) {
   report_variant <- .normalize_cftc_report_variant(match.arg(report_variant))
+  report_type <- .normalize_cftc_report_type(report_type)
   if (is.null(dataset_id) || !nzchar(dataset_id)) {
-    dataset_id <- .cftc_cot_dataset_map()[[report_variant]]
+    dataset_id <- .cftc_cot_dataset_map(report_type)[[report_variant]]
   }
   metadata <- .http_get_json(.cftc_cot_metadata_url(dataset_id))
   stamp <- metadata$rowsUpdatedAt
@@ -191,13 +208,15 @@ get_local_cftc_cot <- function(report_id, local_path = NULL) {
 #' @return A local synchronization result list.
 #' @export
 sync_local_cftc_cot <- function(report_variant = c("futures_only", "combined"),
+                                report_type = "tff",
                                 report_id = NULL, dataset_id = NULL,
                                 market_codes = NULL, from = NULL, to = NULL,
                                 local_path = NULL, overlap_days = 14L,
                                 page_size = 5000L) {
   report_variant <- .normalize_cftc_report_variant(match.arg(report_variant))
-  if (is.null(report_id) || !nzchar(report_id)) report_id <- paste0("tff_", report_variant)
-  if (is.null(dataset_id) || !nzchar(dataset_id)) dataset_id <- .cftc_cot_dataset_map()[[report_variant]]
+  report_type <- .normalize_cftc_report_type(report_type)
+  if (is.null(report_id) || !nzchar(report_id)) report_id <- paste0(report_type, "_", report_variant)
+  if (is.null(dataset_id) || !nzchar(dataset_id)) dataset_id <- .cftc_cot_dataset_map(report_type)[[report_variant]]
   if (is.null(local_path)) local_path <- get_source_data_path("cftc", create = TRUE)
   local_file <- .cftc_cot_local_file(report_id, local_path)
   local_dt <- .safe_read_rds(local_file, default = NULL)
@@ -209,6 +228,7 @@ sync_local_cftc_cot <- function(report_variant = c("futures_only", "combined"),
 
   new_dt <- get_source_data_cftc_cot(
     report_variant = report_variant,
+    report_type = report_type,
     report_id = report_id,
     dataset_id = dataset_id,
     market_codes = market_codes,
@@ -217,7 +237,7 @@ sync_local_cftc_cot <- function(report_variant = c("futures_only", "combined"),
     page_size = page_size
   )
   source_utime <- tryCatch(
-    get_source_utime_cftc_cot(report_variant = report_variant, dataset_id = dataset_id),
+    get_source_utime_cftc_cot(report_variant = report_variant, report_type = report_type, dataset_id = dataset_id),
     error = function(e) NULL
   )
   sync_local_data(
@@ -287,6 +307,7 @@ sync_all_cftc_cot_registry_data <- function(registry = get_cftc_cot_registry(), 
 
   rows <- lapply(seq_len(nrow(registry)), function(i) {
     report_id <- registry$report_id[[i]]
+    report_type <- if ("report_type" %in% names(registry)) registry$report_type[[i]] else "tff"
     report_variant <- registry$report_variant[[i]]
     dataset_id <- registry$dataset_id[[i]]
     market_codes <- if ("market_codes" %in% names(registry)) .cftc_registry_market_codes(registry$market_codes[[i]]) else NULL
@@ -295,6 +316,7 @@ sync_all_cftc_cot_registry_data <- function(registry = get_cftc_cot_registry(), 
       {
         res <- sync_local_cftc_cot(
           report_variant = report_variant,
+          report_type = report_type,
           report_id = report_id,
           dataset_id = dataset_id,
           market_codes = market_codes,
@@ -303,7 +325,7 @@ sync_all_cftc_cot_registry_data <- function(registry = get_cftc_cot_registry(), 
           ...
         )
         data.table::data.table(
-          report_id = report_id, report_variant = report_variant, dataset_id = dataset_id,
+          report_id = report_id, report_type = report_type, report_variant = report_variant, dataset_id = dataset_id,
           status = "success", updated = isTRUE(res$updated),
           n_rows = if (is.null(res$n_rows)) NA_integer_ else res$n_rows,
           n_new_rows = if (is.null(res$n_new_rows)) NA_integer_ else res$n_new_rows,
@@ -311,7 +333,7 @@ sync_all_cftc_cot_registry_data <- function(registry = get_cftc_cot_registry(), 
         )
       },
       error = function(e) data.table::data.table(
-        report_id = report_id, report_variant = report_variant, dataset_id = dataset_id,
+        report_id = report_id, report_type = report_type, report_variant = report_variant, dataset_id = dataset_id,
         status = "error", updated = FALSE, n_rows = NA_integer_, n_new_rows = NA_integer_,
         error = conditionMessage(e),
         error_class = class(e)[[1L]],
@@ -344,7 +366,7 @@ describe_cftc_cot_data <- function(report_id, local_path = NULL) {
   dt <- get_local_cftc_cot(report_id = report_id, local_path = local_path)
   if (is.null(dt) || nrow(dt) == 0L) stop("Local CFTC COT data not found for report_id: ", report_id, call. = FALSE)
   paste(
-    sprintf("This object is a data.table for CFTC Traders in Financial Futures report %s.", report_id),
+    sprintf("This object is a data.table for CFTC Commitments of Traders report %s.", report_id),
     "Each row represents one contract market on one weekly report date; position, change, percentage, trader-count, and concentration measures remain in fixed source-aligned columns.",
     sprintf("The table contains %s rows, %s contract markets, and %s columns.", nrow(dt), data.table::uniqueN(dt$cftc_contract_market_code), ncol(dt)),
     .describe_time_coverage(dt$report_date),

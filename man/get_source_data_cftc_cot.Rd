@@ -2,10 +2,11 @@
 % Please edit documentation in R/cftc_cot_data.R
 \name{get_source_data_cftc_cot}
 \alias{get_source_data_cftc_cot}
-\title{Retrieve CFTC Traders In Financial Futures Data}
+\title{Retrieve CFTC Commitments Of Traders Data}
 \usage{
 get_source_data_cftc_cot(
   report_variant = c("futures_only", "combined"),
+  report_type = "tff",
   report_id = NULL,
   dataset_id = NULL,
   market_codes = NULL,
@@ -17,6 +18,8 @@ get_source_data_cftc_cot(
 }
 \arguments{
 \item{report_variant}{Report variant: \code{"futures_only"} or \code{"combined"}.}
+
+\item{report_type}{Report family: \code{"tff"}, \code{"disaggregated"}, or \code{"legacy"}.}
 
 \item{report_id}{Stable local report identifier.}
 
@@ -34,6 +37,6 @@ get_source_data_cftc_cot(
 A standardized wide \code{data.table}, one row per market and report date.
 }
 \description{
-Retrieves a futures-only or futures-and-options-combined Traders in
-Financial Futures report from the CFTC Public Reporting Environment.
+Retrieves TFF, Disaggregated, or Legacy reports from the CFTC Public
+Reporting Environment.
 }
