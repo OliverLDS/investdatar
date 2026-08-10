@@ -34,11 +34,16 @@ Supported providers currently include:
 ## Installation
 
 ```r
+# CRAN release, when available:
+# install.packages("investdatar")
+
+# Development version:
 # install.packages("remotes")
 remotes::install_github("OliverLDS/investdatar")
 ```
 
-`investdatar` is currently released through GitHub, not CRAN.
+Development versions are available through GitHub. Use CRAN releases when
+available.
 
 ## Configuration
 

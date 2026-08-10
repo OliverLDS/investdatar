@@ -1,8 +1,6 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
 Version: 0.1.5
-Author: Oliver Zhou
-Maintainer: Oliver Zhou <oliver.yxzhou@gmail.com>
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 
@@ -13,7 +11,7 @@ Description: A toolkit for loading, transforming, and managing
     time-series gaps and synchronizes local '.rds' data stores with sidecar
     metadata for analysis and trading workflows. It also generates structured
     dataset descriptions for LLM-based analyst agents that produce R code for
-    analysis and visualization. The package is released publicly through GitHub.
+    analysis and visualization.
 License: MIT + file LICENSE
 URL: https://github.com/OliverLDS/investdatar
 BugReports: https://github.com/OliverLDS/investdatar/issues
@@ -36,9 +34,6 @@ Suggests:
     wbstats,
     withr,
     zoo
-Remotes:
-    OliverLDS/binxr,
-    OliverLDS/okxr
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 Config/roxygen2/version: 8.0.0
