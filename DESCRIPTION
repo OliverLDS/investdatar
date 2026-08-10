@@ -30,6 +30,7 @@ Suggests:
     okxr,
     quantmod,
     testthat (>= 3.0.0),
+    xts,
     waldo,
     wbstats,
     withr,

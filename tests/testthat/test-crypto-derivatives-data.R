@@ -88,6 +88,47 @@ test_that("crypto derivatives dispatch validates supported combinations", {
   )
 })
 
+test_that("Binance periodic derivatives use internal public HTTP adapters", {
+  calls <- list()
+  payload <- list(
+    openInterestHist = data.frame(timestamp = "1735689600000", sumOpenInterest = "10", sumOpenInterestValue = "100", stringsAsFactors = FALSE),
+    basis = data.frame(timestamp = "1735689600000", basis = "1", basisRate = "0.01", stringsAsFactors = FALSE),
+    globalLongShortAccountRatio = data.frame(timestamp = "1735689600000", longShortRatio = "1.2", longAccount = "0.6", shortAccount = "0.5", stringsAsFactors = FALSE),
+    topLongShortAccountRatio = data.frame(timestamp = "1735689600000", longShortRatio = "1.3", longAccount = "0.7", shortAccount = "0.5", stringsAsFactors = FALSE),
+    topLongShortPositionRatio = data.frame(timestamp = "1735689600000", longShortRatio = "1.4", longAccount = "0.7", shortAccount = "0.5", stringsAsFactors = FALSE)
+  )
+  out <- testthat::with_mocked_bindings(
+    .http_get_json = function(url, query = NULL, ...) {
+      calls[[length(calls) + 1L]] <<- list(url = url, query = query)
+      key <- sub(".*/", "", url)
+      payload[[key]]
+    },
+    {
+      oi <- investdatar::get_source_data_crypto_derivatives("binance", "open_interest", "BTCUSDT", "1h", from = "2025-01-01", limit = 10L)
+      basis <- investdatar::get_source_data_crypto_derivatives("binance", "basis", "BTCUSDT", "1h", from = "2025-01-01", limit = 10L)
+      global <- investdatar::get_source_data_crypto_derivatives("binance", "global_long_short_ratio", "BTCUSDT", "1h", from = "2025-01-01", limit = 10L)
+      account <- investdatar::get_source_data_crypto_derivatives("binance", "top_long_short_account_ratio", "BTCUSDT", "1h", from = "2025-01-01", limit = 10L)
+      position <- investdatar::get_source_data_crypto_derivatives("binance", "top_long_short_position_ratio", "BTCUSDT", "1h", from = "2025-01-01", limit = 10L)
+      list(oi = oi, basis = basis, global = global, account = account, position = position)
+    },
+    .package = "investdatar"
+  )
+
+  expect_equal(length(calls), 5L)
+  expect_match(calls[[1L]]$url, "/futures/data/openInterestHist$")
+  expect_match(calls[[2L]]$url, "/futures/data/basis$")
+  expect_equal(calls[[2L]]$query$pair, "BTCUSDT")
+  expect_equal(calls[[2L]]$query$contractType, "PERPETUAL")
+  expect_match(calls[[3L]]$url, "/futures/data/globalLongShortAccountRatio$")
+  expect_match(calls[[4L]]$url, "/futures/data/topLongShortAccountRatio$")
+  expect_match(calls[[5L]]$url, "/futures/data/topLongShortPositionRatio$")
+  expect_equal(out$oi$open_interest, 10)
+  expect_equal(out$basis$basis_rate, 0.01)
+  expect_equal(out$global$long_short_ratio, 1.2)
+  expect_equal(out$account$long_account, 0.7)
+  expect_equal(out$position$long_short_ratio, 1.4)
+})
+
 test_that("OKX source update time performs one latest-row request", {
   calls <- 0L
   value <- testthat::with_mocked_bindings(

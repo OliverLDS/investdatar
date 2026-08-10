@@ -17,6 +17,19 @@
   response
 }
 
+.binance_futures_data_url <- function(path) {
+  paste0("https://fapi.binance.com", path)
+}
+
+.get_binance_periodic_data <- function(path, query) {
+  response <- .check_binance_derivatives_response(
+    .http_get_json(.binance_futures_data_url(path), query = query)
+  )
+  if (is.data.frame(response)) return(data.table::as.data.table(response))
+  if (is.null(response) || length(response) == 0L) return(data.table::data.table())
+  data.table::rbindlist(response, use.names = TRUE, fill = TRUE)
+}
+
 .crypto_derivatives_empty <- function() {
   data.table::data.table(
     source = character(), provider = character(), dataset_type = character(),
@@ -142,15 +155,14 @@
 }
 
 .get_binance_open_interest_history <- function(symbol, interval, from = NULL, to = NULL, limit = 500L) {
-  .require_suggested_package("binxr", "to retrieve Binance derivatives history.")
   limit <- max(1L, min(as.integer(limit), 500L))
   start_ms <- .crypto_time_ms(from %||% (Sys.time() - as.difftime(29, units = "days")))
   end_ms <- .crypto_time_ms(to)
   pages <- list()
   repeat {
-    page <- binxr::futures_get_open_interest_history(
-      symbol, period = interval, startTime = start_ms, endTime = end_ms,
-      limit = limit, config = binxr::config_futures()
+    page <- .get_binance_periodic_data(
+      "/futures/data/openInterestHist",
+      list(symbol = symbol, period = interval, startTime = start_ms, endTime = end_ms, limit = limit)
     )
     if (nrow(page) == 0L) break
     pages[[length(pages) + 1L]] <- page
@@ -164,16 +176,27 @@
 
 .get_binance_periodic_history <- function(dataset_type, symbol, interval,
                                            from = NULL, to = NULL, limit = 500L) {
-  .require_suggested_package("binxr", "to retrieve Binance derivatives history.")
   limit <- max(1L, min(as.integer(limit), 500L))
   start_ms <- .crypto_time_ms(from %||% (Sys.time() - as.difftime(29, units = "days")))
   end_ms <- .crypto_time_ms(to)
   fetch <- switch(
     dataset_type,
-    basis = function() binxr::futures_get_basis(symbol, "PERPETUAL", interval, start_ms, end_ms, limit, config = binxr::config_futures()),
-    global_long_short_ratio = function() binxr::futures_get_global_long_short_ratio(symbol, interval, start_ms, end_ms, limit, config = binxr::config_futures()),
-    top_long_short_account_ratio = function() binxr::futures_get_top_long_short_account_ratio(symbol, interval, start_ms, end_ms, limit, config = binxr::config_futures()),
-    top_long_short_position_ratio = function() binxr::futures_get_top_long_short_position_ratio(symbol, interval, start_ms, end_ms, limit, config = binxr::config_futures()),
+    basis = function() .get_binance_periodic_data(
+      "/futures/data/basis",
+      list(pair = symbol, contractType = "PERPETUAL", period = interval, startTime = start_ms, endTime = end_ms, limit = limit)
+    ),
+    global_long_short_ratio = function() .get_binance_periodic_data(
+      "/futures/data/globalLongShortAccountRatio",
+      list(symbol = symbol, period = interval, startTime = start_ms, endTime = end_ms, limit = limit)
+    ),
+    top_long_short_account_ratio = function() .get_binance_periodic_data(
+      "/futures/data/topLongShortAccountRatio",
+      list(symbol = symbol, period = interval, startTime = start_ms, endTime = end_ms, limit = limit)
+    ),
+    top_long_short_position_ratio = function() .get_binance_periodic_data(
+      "/futures/data/topLongShortPositionRatio",
+      list(symbol = symbol, period = interval, startTime = start_ms, endTime = end_ms, limit = limit)
+    ),
     stop("Unsupported Binance periodic dataset: ", dataset_type, call. = FALSE)
   )
   pages <- list()
