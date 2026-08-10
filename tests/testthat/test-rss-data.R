@@ -145,7 +145,10 @@ test_that("RSS CA bundles are request scoped and other feeds do not inherit them
   summary_dt <- investdatar::sync_all_rss_registry_data(registry, local_path = local_dir)
 
   expect_true(all(summary_dt$status == "success"))
-  expect_equal(observed$cftc_press_releases, normalizePath(bundle))
+  expect_equal(
+    observed$cftc_press_releases,
+    normalizePath(bundle, winslash = "/", mustWork = TRUE)
+  )
   expect_null(observed$fed_press_all)
   expect_true(investdatar::is_sync_run_successful(list(summary = summary_dt)))
   expect_equal(
