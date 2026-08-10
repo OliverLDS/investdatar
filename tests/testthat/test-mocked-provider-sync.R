@@ -398,6 +398,55 @@ test_that("sync_local_quantmod_OHLC refreshes existing daily rows with revised v
   expect_equal(nrow(local_dt), 3L)
 })
 
+test_that("completed Yahoo daily OHLC excludes finite current-UTC futures and crypto bars", {
+  local_dir <- withr::local_tempdir()
+  as_of <- as.POSIXct("2026-08-10 12:00:00", tz = "UTC")
+  for (ticker in c("ZT=F", "BTC-USD")) {
+    dt <- data.table::data.table(
+      source = "quantmod_yahoo", symbol = ticker, interval = "1d",
+      datetime = as.POSIXct(c("2026-08-09", "2026-08-10"), tz = "UTC"),
+      date = as.Date(c("2026-08-09", "2026-08-10")),
+      open = c(1, 2), high = c(2, 3), low = c(0.5, 1.5), close = c(1.5, 2.5), volume = c(10, 20)
+    )
+    filename <- getFromNamespace(".quantmod_local_filename", "investdatar")(ticker, src = "yahoo", interval = "1d")
+    saveRDS(dt, file.path(local_dir, filename))
+    completed <- investdatar::get_completed_local_quantmod_OHLC(ticker, local_path = local_dir, as_of = as_of)
+    raw <- investdatar::get_local_quantmod_OHLC(ticker, local_path = local_dir)
+    expect_equal(nrow(raw), 2L)
+    expect_equal(completed$date, as.Date("2026-08-09"))
+  }
+})
+
+test_that("next overlap sync replaces a provisional daily Yahoo bar once completed", {
+  local_dir <- withr::local_tempdir()
+  provisional <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "ZT=F", interval = "1d",
+    datetime = as.POSIXct("2026-08-10", tz = "UTC"), date = as.Date("2026-08-10"),
+    open = 110, high = 111, low = 109, close = 110.5, volume = 100
+  )
+  final <- data.table::copy(provisional)
+  final[, `:=`(high = 112, close = 111.75, volume = 250)]
+  first <- testthat::with_mocked_bindings(
+    fetch_quantmod_OHLC = function(...) provisional,
+    investdatar::sync_local_quantmod_OHLC("ZT=F", from = "2026-08-10", to = "2026-08-10", local_path = local_dir),
+    .package = "investdatar"
+  )
+  second <- testthat::with_mocked_bindings(
+    fetch_quantmod_OHLC = function(...) final,
+    investdatar::sync_local_quantmod_OHLC("ZT=F", from = "2026-08-10", to = "2026-08-11", local_path = local_dir),
+    .package = "investdatar"
+  )
+  raw <- investdatar::get_local_quantmod_OHLC("ZT=F", local_path = local_dir)
+  completed <- investdatar::get_completed_local_quantmod_OHLC(
+    "ZT=F", local_path = local_dir, as_of = as.POSIXct("2026-08-11 00:00:01", tz = "UTC")
+  )
+
+  expect_true(first$updated)
+  expect_true(second$updated)
+  expect_equal(raw$close, 111.75)
+  expect_equal(completed$close, 111.75)
+})
+
 test_that("sync_local_quantmod_OHLC surfaces upstream quantmod errors", {
   local_dir <- withr::local_tempdir()
 

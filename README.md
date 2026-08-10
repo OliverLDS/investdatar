@@ -238,6 +238,7 @@ specs as follows:
 - `okx` -> `get_local_okx_candle()`
 - `binance` -> `get_local_binance_klines()`
 - `quantmod` with `src = "yahoo"` -> `get_local_quantmod_OHLC()`
+- completed Yahoo daily bars -> `get_completed_local_quantmod_OHLC()`
 - `crypto_derivatives` -> `get_local_crypto_derivatives()`
 
 Local path conventions for other market-data specs:
@@ -326,6 +327,13 @@ also try Yahoo's chart-range endpoint and report
 succeeds. The external fallback is limited to declared rows; it never replaces
 a finite local Yahoo bar and all other symbols continue to use Yahoo through
 `quantmod`.
+
+Daily Yahoo OHLC cache rows dated on the current UTC date are provisional even
+when open, high, low, close, and volume are finite. Source timestamps and cache
+freshness indicate retrieval timing, not that a daily bar is final. Raw reads
+retain those rows; use `get_completed_local_quantmod_OHLC()` with an explicit
+UTC `as_of` timestamp for analysis requiring completed daily bars. The next
+overlap sync upserts the finalized same-date row.
 
 World Bank registry batch sync is available through
 `sync_all_wbstats_registry_data()`. It reads indicator definitions from the

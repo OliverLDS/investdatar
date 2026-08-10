@@ -479,6 +479,31 @@ get_local_quantmod_OHLC <- function(label, src = "yahoo", interval = "1d", local
   .read_local_data_table(file.path(local_path, .quantmod_local_filename(label, src = src, interval = interval)), sort_cols = "datetime")
 }
 
+#' Get Completed Local Daily quantmod OHLC Data
+#'
+#' Return only daily OHLC rows whose UTC date is strictly before an explicit
+#' cutoff. A finite row dated on the current UTC date is retained in the raw
+#' cache but is provisional until the next UTC date.
+#'
+#' @param label Local symbol label used in the stored data.
+#' @param src quantmod source, default `"yahoo"`.
+#' @param interval Interval label. Only `"1d"` is supported.
+#' @param local_path Optional local storage path.
+#' @param as_of UTC timestamp used to determine the current UTC date.
+#'
+#' @return `data.table` or `NULL`.
+#' @export
+get_completed_local_quantmod_OHLC <- function(label, src = "yahoo", interval = "1d", local_path = NULL,
+                                              as_of = as.Date(Sys.time(), tz = "UTC")) {
+  if (!identical(interval, "1d")) {
+    stop("Completed-bar filtering is only defined for daily ('1d') OHLC data.", call. = FALSE)
+  }
+  dt <- get_local_quantmod_OHLC(label = label, src = src, interval = interval, local_path = local_path)
+  if (is.null(dt) || nrow(dt) == 0L) return(dt)
+  cutoff_date <- as.Date(as_of, tz = "UTC")
+  dt[date < cutoff_date]
+}
+
 #' Synchronize Local quantmod OHLC Data
 #'
 #' @param ticker Market symbol passed to `quantmod::getSymbols()`.
