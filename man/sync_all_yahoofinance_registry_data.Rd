@@ -26,7 +26,9 @@ for tickers without local data.}
 
 \item{to}{End date passed to \code{quantmod::getSymbols()}.}
 
-\item{registry}{Optional Yahoo Finance registry table.}
+\item{registry}{Optional Yahoo Finance registry table.
+When omitted, the configured runtime registry is validated against the
+package seed before any provider request.}
 
 \item{local_path}{Optional local storage path.}
 

@@ -19,6 +19,7 @@ if (getRversion() >= "2.15.1") {
       "Weight (%)",
       "adj_close",
       "acceptance_datetime",
+      "..required",
       "cik",
       "cftc_contract_market_code",
       "change_direction",
@@ -36,6 +37,8 @@ if (getRversion() >= "2.15.1") {
       "freq",
       "frequency",
       "fact_key",
+      "fallback_source",
+      "fallback_ticker",
       "filed",
       "filing_date",
       "fiscal_year",
@@ -44,6 +47,8 @@ if (getRversion() >= "2.15.1") {
       "guid",
       "high",
       "indicator_id",
+      "i.fallback_source",
+      "i.fallback_ticker",
       "interval",
       "is_inline_xbrl",
       "is_xbrl",
@@ -72,7 +77,8 @@ if (getRversion() >= "2.15.1") {
       "ticker",
       "title",
       "value",
-      "volume"
+      "volume",
+      "yahoo_finance_ticker"
     )
   )
 }

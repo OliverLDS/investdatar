@@ -291,7 +291,21 @@ Isolated non-finite bars are dropped rather than being allowed to overwrite a
 valid local bar; materially short windows are still rejected.
 The shipped 58-symbol seed registry is
 `inst/extdata/config/YahooFinance_ticker_registry.json`; copy it into the
-configured runtime path when initializing a local registry.
+configured runtime path when initializing a local registry. Prefer the
+deterministic bootstrap below: it creates an absent runtime registry from the
+tracked seed and refuses to overwrite an existing one. Validate an existing
+registry before scheduled syncs so required fallback declarations cannot drift
+silently across machines.
+
+```r
+bootstrap_yahoofinance_registry()
+validate_yahoofinance_registry()
+```
+
+When validation fails, restore the required fallback entries from the tracked
+seed. Alternatively, first back up the existing runtime JSON file, remove it,
+and run `bootstrap_yahoofinance_registry()` to recreate it. The default Yahoo
+registry batch sync performs this validation before making provider requests.
 
 For a known Yahoo-only failure, a registry row can opt into an explicit,
 provenance-preserving fallback rather than silently substituting data:

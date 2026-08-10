@@ -387,6 +387,81 @@ get_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_
   )
 }
 
+#' Get Yahoo Finance Seed Registry Path
+#'
+#' @return Path to the package-managed Yahoo Finance registry seed.
+#' @export
+get_yahoofinance_seed_registry_path <- function() {
+  path <- system.file("extdata", "config", "YahooFinance_ticker_registry.json", package = "investdatar")
+  if (!nzchar(path) || !file.exists(path)) {
+    stop("The packaged Yahoo Finance registry seed is unavailable.", call. = FALSE)
+  }
+  path
+}
+
+#' Validate Yahoo Finance Runtime Registry
+#'
+#' Compare fallback declarations in a runtime registry with the package-managed
+#' seed. Additional runtime-only ticker metadata is permitted; every seed
+#' fallback declaration must be present unchanged.
+#'
+#' @param registry_path Runtime registry JSON path.
+#' @param seed_path Package seed registry JSON path.
+#'
+#' @return A list with `valid`, `missing`, and `mismatched` data tables.
+#' @export
+validate_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path(),
+                                            seed_path = get_yahoofinance_seed_registry_path()) {
+  required <- c("yahoo_finance_ticker", "fallback_source", "fallback_ticker")
+  seed <- .read_json_registry(seed_path, empty_cols = required)
+  seed <- seed[!is.na(fallback_source) & nzchar(fallback_source)]
+  runtime <- if (file.exists(registry_path)) {
+    .read_json_registry(registry_path, empty_cols = required)
+  } else {
+    data.table::data.table(yahoo_finance_ticker = character(), fallback_source = character(), fallback_ticker = character())
+  }
+  runtime <- runtime[, ..required]
+  missing <- seed[!runtime, on = "yahoo_finance_ticker"]
+  matched <- seed[runtime, on = "yahoo_finance_ticker", nomatch = 0L, allow.cartesian = FALSE]
+  mismatched <- matched[
+    fallback_source != i.fallback_source | fallback_ticker != i.fallback_ticker,
+    .(yahoo_finance_ticker, fallback_source, fallback_ticker,
+      runtime_fallback_source = i.fallback_source, runtime_fallback_ticker = i.fallback_ticker)
+  ]
+  list(valid = nrow(missing) == 0L && nrow(mismatched) == 0L, missing = missing, mismatched = mismatched)
+}
+
+#' Bootstrap Yahoo Finance Runtime Registry
+#'
+#' Create an absent runtime registry from the tracked package seed. Existing
+#' registries are never overwritten; they are validated and an actionable error
+#' is raised if required fallback declarations have drifted.
+#'
+#' @param registry_path Runtime registry JSON path.
+#' @param seed_path Package seed registry JSON path.
+#'
+#' @return Invisibly returns the runtime registry path.
+#' @export
+bootstrap_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path(),
+                                             seed_path = get_yahoofinance_seed_registry_path()) {
+  if (!file.exists(registry_path)) {
+    dir.create(dirname(registry_path), recursive = TRUE, showWarnings = FALSE)
+    if (!file.copy(seed_path, registry_path, overwrite = FALSE)) {
+      stop("Could not create Yahoo Finance runtime registry: ", registry_path, call. = FALSE)
+    }
+    return(invisible(registry_path))
+  }
+  validation <- validate_yahoofinance_registry(registry_path, seed_path)
+  if (!validation$valid) {
+    stop(
+      "Yahoo Finance runtime registry is missing or has changed required fallback declarations. ",
+      "Reinitialize it from the package seed or update the declarations manually.",
+      call. = FALSE
+    )
+  }
+  invisible(registry_path)
+}
+
 #' Get Local quantmod OHLC Data
 #'
 #' @param label Local symbol label used in the stored data.
@@ -478,6 +553,8 @@ sync_local_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "ya
 #'   for tickers without local data.
 #' @param to End date passed to `quantmod::getSymbols()`.
 #' @param registry Optional Yahoo Finance registry table.
+#'   When omitted, the configured runtime registry is validated against the
+#'   package seed before any provider request.
 #' @param local_path Optional local storage path.
 #' @param src quantmod source, default `"yahoo"`.
 #' @param overlap_days Integer safety overlap used when deriving per-ticker
@@ -499,6 +576,25 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
                                                 retry_delay_seconds = 1,
                                                 fallback_source = NULL,
                                                 fallback_ticker = NULL) {
+  if (missing(registry)) {
+    registry_path <- get_yahoofinance_registry_file_path()
+    if (!file.exists(registry_path)) {
+      stop(
+        "Yahoo Finance runtime registry is missing: ", registry_path,
+        ". Run bootstrap_yahoofinance_registry() to create it from the package seed.",
+        call. = FALSE
+      )
+    }
+    validation <- validate_yahoofinance_registry(registry_path)
+    if (!validation$valid) {
+      stop(
+        "Yahoo Finance runtime registry is missing or has changed required fallback declarations. ",
+        "Restore the required entries from the package seed, or back up the existing file and ",
+        "recreate it with bootstrap_yahoofinance_registry().",
+        call. = FALSE
+      )
+    }
+  }
   stopifnot("yahoo_finance_ticker" %in% names(registry))
 
   if (is.null(local_path)) {

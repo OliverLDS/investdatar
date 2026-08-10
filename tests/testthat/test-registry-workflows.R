@@ -265,6 +265,46 @@ test_that("shipped Yahoo Finance seed declares the CSI 300 fallback", {
   expect_equal(cnh$fallback_ticker[[1L]], "133.USDCNH")
 })
 
+test_that("Yahoo Finance runtime registry bootstraps and detects fallback drift", {
+  runtime_path <- file.path(withr::local_tempdir(), "YahooFinance_ticker_registry.json")
+  seed_path <- system.file("extdata", "config", "YahooFinance_ticker_registry.json", package = "investdatar")
+
+  expect_false(file.exists(runtime_path))
+  expect_equal(investdatar::bootstrap_yahoofinance_registry(runtime_path, seed_path), runtime_path)
+  expect_true(file.exists(runtime_path))
+  expect_true(investdatar::validate_yahoofinance_registry(runtime_path, seed_path)$valid)
+
+  runtime <- jsonlite::fromJSON(runtime_path, simplifyDataFrame = TRUE)
+  runtime[runtime$yahoo_finance_ticker == "000300.SS", "fallback_ticker"] <- "wrong"
+  jsonlite::write_json(runtime, runtime_path, auto_unbox = TRUE, pretty = TRUE, na = "null")
+  validation <- investdatar::validate_yahoofinance_registry(runtime_path, seed_path)
+  expect_false(validation$valid)
+  expect_equal(validation$mismatched$yahoo_finance_ticker, "000300.SS")
+  expect_error(investdatar::bootstrap_yahoofinance_registry(runtime_path, seed_path), "required fallback declarations")
+})
+
+test_that("Yahoo Finance sync validates its configured runtime registry before fetching", {
+  calls <- 0L
+  registry_path <- file.path(withr::local_tempdir(), "YahooFinance_ticker_registry.json")
+  file.create(registry_path)
+  testthat::with_mocked_bindings(
+    get_yahoofinance_registry_file_path = function(...) registry_path,
+    validate_yahoofinance_registry = function(...) {
+      list(valid = FALSE, missing = data.table::data.table(), mismatched = data.table::data.table())
+    },
+    sync_local_quantmod_OHLC = function(...) {
+      calls <<- calls + 1L
+      stop("provider should not be called")
+    },
+    expect_error(
+      investdatar::sync_all_yahoofinance_registry_data(),
+      "Restore the required entries"
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(calls, 0L)
+})
+
 test_that("RSS registry sync writes a batch run log", {
   registry <- data.table::data.table(
     feed_id = "demo_feed",
