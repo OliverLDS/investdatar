@@ -12,5 +12,6 @@
 ^R/\.DS_Store$
 ^R/\.Rhistory$
 ^investdatar_.*\.tar\.gz$
+^cran-comments\.md$
 ^reference_codes$
 ^scripts$

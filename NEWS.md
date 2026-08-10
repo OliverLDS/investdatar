@@ -1,12 +1,3 @@
-# investdatar (development)
-
-- Added feed-scoped RSS CA-bundle configuration so a feed with a certificate
-  chain missing from the runtime's default trust store can be synchronized
-  without disabling TLS verification or affecting other feeds.
-- Added bounded per-symbol Yahoo/quantmod retries, explicit incomplete-window
-  errors, and registry-declared Eastmoney fallback support with per-bar and
-  batch-summary source provenance.
-
 # investdatar 0.1.5
 
 - Added optional monthly partitioned OKX and Binance candle storage with
@@ -21,6 +12,12 @@
   archives; broadened CFTC and Treasury Fiscal Data registries.
 - Added a provider-neutral fund-holdings schema, full Alpha Vantage cache and
   registry parity, and selective direct BLS, BEA, and Census modules.
+- Added feed-scoped RSS CA-bundle configuration so a feed with a certificate
+  chain missing from the runtime's default trust store can be synchronized
+  without disabling TLS verification or affecting other feeds.
+- Added bounded per-symbol Yahoo/quantmod retries, explicit incomplete-window
+  errors, and registry-declared Eastmoney fallback support with per-bar and
+  batch-summary source provenance.
 
 # investdatar 0.1.4
 
