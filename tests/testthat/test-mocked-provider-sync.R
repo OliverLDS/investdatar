@@ -341,7 +341,7 @@ test_that("sync_local_quantmod_OHLC uses the yahoo local layout", {
   )
 
   res <- testthat::with_mocked_bindings(
-    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE) mocked_dt,
+    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE, ...) mocked_dt,
     investdatar::sync_local_quantmod_OHLC("SPY", from = "2026-03-25", to = "2026-03-26", local_path = local_dir),
     .package = "investdatar"
   )
@@ -384,7 +384,7 @@ test_that("sync_local_quantmod_OHLC refreshes existing daily rows with revised v
   )
 
   res <- testthat::with_mocked_bindings(
-    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE) refreshed_dt,
+    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE, ...) refreshed_dt,
     investdatar::sync_local_quantmod_OHLC("HSI", from = "2026-03-30", to = "2026-04-01", local_path = local_dir),
     .package = "investdatar"
   )
@@ -402,7 +402,7 @@ test_that("sync_local_quantmod_OHLC surfaces upstream quantmod errors", {
   local_dir <- withr::local_tempdir()
 
   testthat::with_mocked_bindings(
-    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE) {
+    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE, ...) {
       stop("quantmod failed to fetch 'DX-Y.NYB' from source 'yahoo': no data for symbol", call. = FALSE)
     },
     expect_error(
@@ -411,6 +411,234 @@ test_that("sync_local_quantmod_OHLC surfaces upstream quantmod errors", {
     ),
     .package = "investdatar"
   )
+})
+
+test_that("fetch_quantmod_OHLC retries transient symbol failures with bounded backoff", {
+  attempts <- 0L
+  x <- xts::xts(
+    cbind(Open = c(1, 2), High = c(2, 3), Low = c(0.5, 1.5), Close = c(1.5, 2.5), Volume = c(10, 20), Adjusted = c(1.5, 2.5)),
+    order.by = as.Date(c("2026-03-25", "2026-03-26"))
+  )
+  colnames(x) <- paste0("SPY.", colnames(x))
+
+  dt <- testthat::with_mocked_bindings(
+    .quantmod_get_symbols = function(...) {
+      attempts <<- attempts + 1L
+      if (attempts < 3L) stop("temporary Yahoo response failure")
+      x
+    },
+    investdatar::fetch_quantmod_OHLC(
+      "SPY", from = "2026-03-25", to = "2026-03-26",
+      max_attempts = 3L, retry_delay_seconds = 0
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(attempts, 3L)
+  expect_equal(attr(dt, "investdatar_fetch_method"), "quantmod")
+  expect_equal(attr(dt, "investdatar_fetch_attempts"), 3L)
+})
+
+test_that("fetch_quantmod_OHLC rejects malformed HTTP-200-style null OHLC payloads", {
+  x <- xts::xts(
+    cbind(Open = 1, High = 2, Low = 0.5, Close = NA_real_, Volume = 10, Adjusted = NA_real_),
+    order.by = as.Date("2026-08-10")
+  )
+  colnames(x) <- paste0("000300.SS.", colnames(x))
+
+  testthat::with_mocked_bindings(
+    .quantmod_get_symbols = function(...) x,
+    .fetch_yahoo_chart_range_ohlc = function(...) {
+      investdatar:::.quantmod_xts_to_ohlc(x, "000300.SS", "yahoo")
+    },
+    expect_error(
+      investdatar::fetch_quantmod_OHLC(
+        "000300.SS", from = "2026-07-24", to = "2026-08-10",
+        max_attempts = 2L, retry_delay_seconds = 0, fallback_source = NULL
+      ),
+      class = "investdatar_quantmod_error"
+    ),
+    .package = "investdatar"
+  )
+})
+
+test_that("fetch_quantmod_OHLC reports retry exhaustion", {
+  attempts <- 0L
+  testthat::with_mocked_bindings(
+    .quantmod_get_symbols = function(...) {
+      attempts <<- attempts + 1L
+      stop("temporary transport failure")
+    },
+    .fetch_yahoo_chart_range_ohlc = function(...) stop("Yahoo chart endpoint unavailable"),
+    expect_error(
+      investdatar::fetch_quantmod_OHLC(
+        "SPY", from = "2026-08-03", to = "2026-08-04",
+        max_attempts = 2L, retry_delay_seconds = 0, fallback_source = NULL
+      ),
+      class = "investdatar_quantmod_error"
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(attempts, 2L)
+})
+
+test_that("new listings skip start-coverage checks while established series do not", {
+  dt <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "NEW", interval = "1d",
+    datetime = as.POSIXct("2026-08-10", tz = "UTC"), date = as.Date("2026-08-10"),
+    open = 1, high = 2, low = 0.5, close = 1.5, volume = 10
+  )
+  expect_silent(investdatar:::.validate_quantmod_ohlc_window(
+    dt, ticker = "NEW", src = "yahoo", from = "2026-07-24", to = "2026-08-10",
+    require_start_coverage = FALSE
+  ))
+  expect_error(
+    investdatar:::.validate_quantmod_ohlc_window(
+      dt, ticker = "NEW", src = "yahoo", from = "2026-07-24", to = "2026-08-10",
+      require_start_coverage = TRUE
+    ),
+    class = "investdatar_incomplete_window_error"
+  )
+})
+
+test_that("Eastmoney fallback is explicit and returns standardized CSI 300 bars", {
+  payload <- list(data = list(klines = c(
+    "2026-07-24,4685.41,4649.19,4704.08,4642.94,221261212",
+    "2026-07-27,4656.03,4702.43,4702.52,4615.53,204786941"
+  )))
+  dt <- testthat::with_mocked_bindings(
+    .http_get_json = function(...) payload,
+    investdatar:::.fetch_eastmoney_ohlc("1.000300", "000300.SS", "2026-07-24", "2026-07-27"),
+    .package = "investdatar"
+  )
+
+  expect_equal(dt$source, c("eastmoney", "eastmoney"))
+  expect_equal(dt$date, as.Date(c("2026-07-24", "2026-07-27")))
+  expect_equal(dt$close, c(4649.19, 4702.43))
+})
+
+test_that("fetch_quantmod_OHLC reports when an explicit fallback was used", {
+  fallback_dt <- data.table::data.table(
+    source = c("eastmoney", "eastmoney"), symbol = "000300.SS", interval = "1d",
+    datetime = as.POSIXct(c("2026-07-24", "2026-07-27"), tz = "UTC"),
+    date = as.Date(c("2026-07-24", "2026-07-27")),
+    open = c(1, 2), high = c(2, 3), low = c(0.5, 1.5), close = c(1.5, 2.5), volume = c(10, 20)
+  )
+  dt <- testthat::with_mocked_bindings(
+    .quantmod_get_symbols = function(...) stop("attempt to set an attribute on NULL"),
+    .fetch_yahoo_chart_range_ohlc = function(...) stop("Yahoo chart endpoint returned incomplete rows"),
+    .fetch_eastmoney_ohlc = function(...) fallback_dt,
+    investdatar::fetch_quantmod_OHLC(
+      "000300.SS", from = "2026-07-24", to = "2026-07-27", max_attempts = 2L,
+      retry_delay_seconds = 0, fallback_source = "eastmoney", fallback_ticker = "1.000300"
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(attr(dt, "investdatar_fetch_method"), "eastmoney_fallback")
+  expect_equal(attr(dt, "investdatar_fetch_attempts"), 2L)
+  expect_match(attr(dt, "investdatar_primary_error"), "attempt to set an attribute on NULL")
+  expect_equal(attr(dt, "investdatar_primary_error_class"), "simpleError")
+  expect_equal(unique(dt$source), "eastmoney")
+})
+
+test_that("fetch_quantmod_OHLC uses Yahoo chart-range recovery before external fallback", {
+  recovered_dt <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "CNH=X", interval = "1d",
+    datetime = as.POSIXct(c("2026-07-24", "2026-07-27"), tz = "UTC"),
+    date = as.Date(c("2026-07-24", "2026-07-27")),
+    open = c(1, 2), high = c(2, 3), low = c(0.5, 1.5), close = c(1.5, 2.5), volume = c(10, 20)
+  )
+  dt <- testthat::with_mocked_bindings(
+    .quantmod_get_symbols = function(...) stop("dated Yahoo request failed"),
+    .fetch_yahoo_chart_range_ohlc = function(...) recovered_dt,
+    investdatar::fetch_quantmod_OHLC(
+      "CNH=X", from = "2026-07-24", to = "2026-07-27", max_attempts = 2L, retry_delay_seconds = 0
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(attr(dt, "investdatar_fetch_method"), "yahoo_chart_range_fallback")
+  expect_equal(attr(dt, "investdatar_fetch_attempts"), 2L)
+  expect_match(attr(dt, "investdatar_primary_error"), "dated Yahoo request failed")
+  expect_equal(unique(dt$source), "quantmod_yahoo")
+})
+
+test_that("validation drops isolated invalid OHLC rows without rejecting complete coverage", {
+  dt <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "DX-Y.NYB", interval = "1d",
+    datetime = as.POSIXct(c("2026-08-03", "2026-08-04", "2026-08-05"), tz = "UTC"),
+    date = as.Date(c("2026-08-03", "2026-08-04", "2026-08-05")),
+    open = c(1, NA_real_, 3), high = c(2, NA_real_, 4), low = c(0.5, NA_real_, 2.5),
+    close = c(1.5, NA_real_, 3.5), volume = c(10, NA_real_, 30)
+  )
+  validated <- investdatar:::.validate_quantmod_ohlc_window(
+    dt, ticker = "DX-Y.NYB", src = "yahoo", from = "2026-08-03", to = "2026-08-05",
+    require_start_coverage = TRUE
+  )
+
+  expect_equal(nrow(validated), 2L)
+  expect_equal(attr(validated, "investdatar_invalid_ohlc_rows"), 1L)
+})
+
+test_that("sync_local_quantmod_OHLC rejects incomplete bars without replacing valid cache rows", {
+  local_dir <- withr::local_tempdir()
+  local_file <- file.path(local_dir, "000300.SS__yahoo__1d.rds")
+  old_dt <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "000300.SS", interval = "1d",
+    datetime = as.POSIXct("2026-08-03", tz = "UTC"), date = as.Date("2026-08-03"),
+    open = 1, high = 2, low = 0.5, close = 1.5, volume = 10, adj_close = 1.5
+  )
+  saveRDS(old_dt, local_file)
+  incomplete_dt <- data.table::copy(old_dt)
+  incomplete_dt[, `:=`(datetime = as.POSIXct("2026-08-10", tz = "UTC"), date = as.Date("2026-08-10"), close = NA_real_)]
+
+  testthat::with_mocked_bindings(
+    fetch_quantmod_OHLC = function(...) incomplete_dt,
+    expect_error(
+      investdatar::sync_local_quantmod_OHLC(
+        "000300.SS", from = "2026-08-01", to = "2026-08-10", local_path = local_dir
+      ),
+      class = "investdatar_incomplete_window_error"
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(readRDS(local_file), old_dt)
+})
+
+test_that("fallback sync fills invalid rows but preserves valid primary-source rows", {
+  local_dir <- withr::local_tempdir()
+  local_file <- file.path(local_dir, "000300.SS__yahoo__1d.rds")
+  old_dt <- data.table::data.table(
+    source = "quantmod_yahoo", symbol = "000300.SS", interval = "1d",
+    datetime = as.POSIXct(c("2026-08-03", "2026-08-04"), tz = "UTC"),
+    date = as.Date(c("2026-08-03", "2026-08-04")),
+    open = c(1, NA_real_), high = c(2, NA_real_), low = c(0.5, NA_real_),
+    close = c(1.5, NA_real_), volume = c(10, NA_real_), adj_close = c(1.5, NA_real_)
+  )
+  saveRDS(old_dt, local_file)
+  fallback_dt <- data.table::copy(old_dt)
+  fallback_dt[, `:=`(
+    source = "eastmoney", open = c(10, 20), high = c(11, 21), low = c(9, 19),
+    close = c(10.5, 20.5), volume = c(100, 200), adj_close = NA_real_
+  )]
+  attr(fallback_dt, "investdatar_fetch_method") <- "eastmoney_fallback"
+  attr(fallback_dt, "investdatar_fetch_attempts") <- 3L
+
+  testthat::with_mocked_bindings(
+    fetch_quantmod_OHLC = function(...) fallback_dt,
+    investdatar::sync_local_quantmod_OHLC(
+      "000300.SS", from = "2026-08-03", to = "2026-08-04", local_path = local_dir
+    ),
+    .package = "investdatar"
+  )
+
+  repaired <- readRDS(local_file)
+  expect_equal(repaired[date == as.Date("2026-08-03"), close][[1]], 1.5)
+  expect_equal(repaired[date == as.Date("2026-08-03"), source][[1]], "quantmod_yahoo")
+  expect_equal(repaired[date == as.Date("2026-08-04"), close][[1]], 20.5)
+  expect_equal(repaired[date == as.Date("2026-08-04"), source][[1]], "eastmoney")
 })
 
 test_that("describe_quantmod_data defaults to local date coverage when from and to are omitted", {
@@ -432,7 +660,7 @@ test_that("describe_quantmod_data defaults to local date coverage when from and 
       expect_equal(label, "DX-Y.NYB")
       local_dt
     },
-    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE) {
+    fetch_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", raw_data = FALSE, ...) {
       expect_equal(from, as.Date("2026-03-01"))
       expect_equal(to, as.Date("2026-03-03"))
       local_dt

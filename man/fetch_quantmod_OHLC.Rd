@@ -10,7 +10,12 @@ fetch_quantmod_OHLC(
   from,
   to,
   src = "yahoo",
-  raw_data = FALSE
+  raw_data = FALSE,
+  max_attempts = 3L,
+  retry_delay_seconds = 1,
+  fallback_source = NULL,
+  fallback_ticker = ticker,
+  require_start_coverage = FALSE
 )
 }
 \arguments{
@@ -25,6 +30,22 @@ fetch_quantmod_OHLC(
 \item{src}{quantmod source, default \code{"yahoo"}.}
 
 \item{raw_data}{Logical. If \code{TRUE}, return the raw xts object.}
+
+\item{max_attempts}{Maximum bounded attempts for a transient source failure.}
+
+\item{retry_delay_seconds}{Initial retry delay in seconds; delays use
+exponential backoff.}
+
+\item{fallback_source}{Optional explicitly configured fallback provider.
+Currently supports \code{"eastmoney"} for daily OHLC data. For Yahoo sources,
+a failed dated quantmod request first retries Yahoo's chart endpoint with a
+bounded range before this external fallback is considered.}
+
+\item{fallback_ticker}{Optional provider-specific fallback identifier.}
+
+\item{require_start_coverage}{Logical. Require material coverage from \code{from}.
+\code{sync_local_quantmod_OHLC()} enables this only when valid local bars already
+establish the instrument's history.}
 }
 \value{
 \code{data.table} or raw xts object when \code{raw_data = TRUE}.
@@ -33,4 +54,13 @@ fetch_quantmod_OHLC(
 Returns a standardized OHLCV \code{data.table} with common market-schema columns:
 \code{source}, \code{symbol}, \code{interval}, \code{datetime}, \code{date}, \code{open}, \code{high}, \code{low},
 \code{close}, and \code{volume}.
+}
+\details{
+A row is usable only if open, high, low, and close are finite.
+Isolated invalid rows are discarded. A window is materially incomplete when
+its end is more than seven calendar days behind the requested end, or, for
+an instrument with valid local history, when its start is more than seven
+calendar days late or fewer than half of the requested weekdays are present.
+The start rule is not applied to a newly listed instrument, and the
+calendar-day grace prevents weekend and market-holiday false positives.
 }

@@ -11,7 +11,11 @@ sync_all_yahoofinance_registry_data(
   local_path = NULL,
   src = "yahoo",
   overlap_days = 10L,
-  initial_lookback_days = 400L
+  initial_lookback_days = 400L,
+  max_attempts = 3L,
+  retry_delay_seconds = 1,
+  fallback_source = NULL,
+  fallback_ticker = NULL
 )
 }
 \arguments{
@@ -33,6 +37,18 @@ incremental start dates from local data.}
 
 \item{initial_lookback_days}{Integer fallback lookback for tickers without
 local data when \code{from} is omitted.}
+
+\item{max_attempts}{Maximum bounded attempts for a transient source failure.}
+
+\item{retry_delay_seconds}{Initial retry delay in seconds; delays use
+exponential backoff.}
+
+\item{fallback_source}{Optional explicitly configured fallback provider.
+Currently supports \code{"eastmoney"} for daily OHLC data. For Yahoo sources,
+a failed dated quantmod request first retries Yahoo's chart endpoint with a
+bounded range before this external fallback is considered.}
+
+\item{fallback_ticker}{Optional provider-specific fallback identifier.}
 }
 \value{
 Summary \code{data.table}.

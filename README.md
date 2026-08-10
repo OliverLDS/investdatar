@@ -279,7 +279,39 @@ only relevant partitions.
 
 Yahoo Finance registry batch sync is also available through
 `sync_all_yahoofinance_registry_data()`. It reads tickers from the configured
-`YahooFinance.registry_file` and synchronizes each one via `quantmod`.
+`YahooFinance.registry_file` and synchronizes each one via `quantmod`. Each
+symbol receives bounded retries with exponential backoff; incomplete OHLC
+windows are reported as errors and are not upserted into the local cache.
+Completeness requires finite open, high, low, and close values. End-of-window
+coverage allows a seven-calendar-day grace period for weekends and market
+holidays. Start-of-window coverage and the minimum weekday-row check apply
+only when valid local bars already establish the instrument's history, so a
+newly listed instrument is not rejected merely for lacking earlier data.
+Isolated non-finite bars are dropped rather than being allowed to overwrite a
+valid local bar; materially short windows are still rejected.
+The shipped 58-symbol seed registry is
+`inst/extdata/config/YahooFinance_ticker_registry.json`; copy it into the
+configured runtime path when initializing a local registry.
+
+For a known Yahoo-only failure, a registry row can opt into an explicit,
+provenance-preserving fallback rather than silently substituting data:
+
+```json
+{
+  "yahoo_finance_ticker": "000300.SS",
+  "fallback_source": "eastmoney",
+  "fallback_ticker": "1.000300"
+}
+```
+
+Fallback bars retain `source = "eastmoney"`, and batch summaries identify
+`fetch_method = "eastmoney_fallback"`, `fetch_attempts`, and the failed
+primary request in `primary_error`. Before an external fallback, Yahoo failures
+also try Yahoo's chart-range endpoint and report
+`fetch_method = "yahoo_chart_range_fallback"` when that same-source recovery
+succeeds. The external fallback is limited to declared rows; it never replaces
+a finite local Yahoo bar and all other symbols continue to use Yahoo through
+`quantmod`.
 
 World Bank registry batch sync is available through
 `sync_all_wbstats_registry_data()`. It reads indicator definitions from the

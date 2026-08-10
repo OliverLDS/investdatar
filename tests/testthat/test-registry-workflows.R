@@ -208,12 +208,19 @@ test_that("Yahoo Finance registry sync returns success and failure summary", {
   saveRDS(local_dt, file.path(local_dir, local_file))
 
   summary_dt <- testthat::with_mocked_bindings(
-    sync_local_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", local_path = NULL) {
+    sync_local_quantmod_OHLC = function(ticker, label = ticker, from, to, src = "yahoo", local_path = NULL, ...) {
       expect_equal(label, ticker)
       if (ticker == "^GSPC") expect_equal(as.Date(from), as.Date("2026-03-11"))
       if (ticker == "^VIX") expect_equal(as.Date(from), as.Date("2025-02-24"))
-      if (ticker == "^VIX") stop("download failed")
-      list(updated = TRUE, n_rows = 100L, n_new_rows = 3L)
+      if (ticker == "^VIX") {
+        stop(structure(list(message = "incomplete OHLC window", call = NULL), class = c("investdatar_incomplete_window_error", "error", "condition")))
+      }
+      list(
+        updated = TRUE, n_rows = 100L, n_new_rows = 3L,
+        fetch_method = "yahoo_chart_range_fallback", fetch_attempts = 3L,
+        primary_error = "dated Yahoo request failed",
+        primary_error_class = "simpleError", invalid_ohlc_rows = 1L
+      )
     },
     investdatar::sync_all_yahoofinance_registry_data(
       to = "2026-03-31",
@@ -226,10 +233,36 @@ test_that("Yahoo Finance registry sync returns success and failure summary", {
   expect_equal(nrow(summary_dt), 2L)
   expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", status][[1]], "success")
   expect_equal(summary_dt[yahoo_finance_ticker == "^VIX", status][[1]], "error")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^VIX", error_class][[1]], "investdatar_incomplete_window_error")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", fetch_method][[1]], "yahoo_chart_range_fallback")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", fetch_attempts][[1]], 3L)
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", primary_error][[1]], "dated Yahoo request failed")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", primary_error_class][[1]], "simpleError")
+  expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", invalid_ohlc_rows][[1]], 1L)
   expect_equal(summary_dt[yahoo_finance_ticker == "^GSPC", latest_local_date][[1]], as.Date("2026-03-21"))
   run_log <- investdatar::get_latest_sync_run("yahoofinance", local_path = local_dir)
   expect_equal(run_log$source_id, "yahoofinance")
   expect_equal(nrow(run_log$summary), 2L)
+})
+
+test_that("shipped Yahoo Finance seed declares the CSI 300 fallback", {
+  registry_path <- system.file(
+    "extdata", "config", "YahooFinance_ticker_registry.json", package = "investdatar"
+  )
+  if (!nzchar(registry_path)) {
+    registry_path <- testthat::test_path(
+      "..", "..", "inst", "extdata", "config", "YahooFinance_ticker_registry.json"
+    )
+  }
+  registry <- investdatar::get_yahoofinance_registry(registry_path)
+  row <- registry[yahoo_finance_ticker == "000300.SS"]
+
+  expect_equal(nrow(registry), 58L)
+  expect_equal(row$fallback_source[[1L]], "eastmoney")
+  expect_equal(row$fallback_ticker[[1L]], "1.000300")
+  cnh <- registry[yahoo_finance_ticker == "CNH=X"]
+  expect_equal(cnh$fallback_source[[1L]], "eastmoney")
+  expect_equal(cnh$fallback_ticker[[1L]], "133.USDCNH")
 })
 
 test_that("RSS registry sync writes a batch run log", {

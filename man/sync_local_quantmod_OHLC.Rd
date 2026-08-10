@@ -10,7 +10,11 @@ sync_local_quantmod_OHLC(
   from,
   to,
   src = "yahoo",
-  local_path = NULL
+  local_path = NULL,
+  max_attempts = 3L,
+  retry_delay_seconds = 1,
+  fallback_source = NULL,
+  fallback_ticker = ticker
 )
 }
 \arguments{
@@ -25,10 +29,26 @@ sync_local_quantmod_OHLC(
 \item{src}{quantmod source, default \code{"yahoo"}.}
 
 \item{local_path}{Optional local storage path.}
+
+\item{max_attempts}{Maximum bounded attempts for a transient source failure.}
+
+\item{retry_delay_seconds}{Initial retry delay in seconds; delays use
+exponential backoff.}
+
+\item{fallback_source}{Optional explicitly configured fallback provider.
+Currently supports \code{"eastmoney"} for daily OHLC data. For Yahoo sources,
+a failed dated quantmod request first retries Yahoo's chart endpoint with a
+bounded range before this external fallback is considered.}
+
+\item{fallback_ticker}{Optional provider-specific fallback identifier.}
 }
 \value{
 A sync result list.
 }
 \description{
 Synchronize Local quantmod OHLC Data
+}
+\details{
+An external fallback never replaces a finite existing primary-source
+OHLC bar. It only fills keys whose local bars are missing or invalid.
 }
