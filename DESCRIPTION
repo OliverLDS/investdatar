@@ -16,6 +16,7 @@ License: MIT + file LICENSE
 URL: https://github.com/OliverLDS/investdatar
 BugReports: https://github.com/OliverLDS/investdatar/issues
 Encoding: UTF-8
+Language: en-US
 Depends: 
     R (>= 4.1.0)
 Imports:
