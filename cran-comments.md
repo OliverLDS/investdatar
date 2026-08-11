@@ -1,9 +1,15 @@
 ## R CMD check results
 
-* Local macOS R 4.2.3: `R CMD check --as-cran` is run before submission.
-* GitHub Actions: R release on Ubuntu, macOS, and Windows; R-devel on Ubuntu.
-* Win-Builder: R-devel and R-release checks are submitted before submission.
-* R-hub: Windows and Linux R-devel checks are submitted before submission.
+* GitHub Actions (2026-08-11): R CMD check --as-cran passed on R release
+  for Ubuntu, macOS, and Windows, and on R-devel for Ubuntu.
+  https://github.com/OliverLDS/investdatar/actions/runs/31455611157
+* R-hub (2026-08-10): passed on Windows R-devel and Linux R-devel.
+  https://github.com/OliverLDS/investdatar/actions/runs/31407360816
+* Win-Builder (2026-08-11): R-release and R-devel both completed with no
+  errors or warnings. Each has the standard CRAN incoming NOTE for a new
+  submission.
+  https://win-builder.r-project.org/3aM0jhgh8XG6
+  https://win-builder.r-project.org/9JTB3qV6oZg1
 
 ## Test isolation
 
