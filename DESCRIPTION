@@ -6,8 +6,9 @@ Authors@R:
 Description: A toolkit for loading, transforming, and managing 
     structured investment-related data. Includes functions for retrieving
     macroeconomic and public financial series, regulatory filings, futures
-    positioning, energy and fiscal data, market OHLCV, fund holdings, narrative
-    feeds, and crypto derivatives from multiple providers. It detects
+    positioning, energy and fiscal data, market open-high-low-close-volume
+    data, fund holdings, narrative feeds, and crypto derivatives from multiple
+    providers. It detects
     time-series gaps and synchronizes local '.rds' data stores with sidecar
     metadata for analysis and trading workflows. It also generates structured
     dataset descriptions for LLM-based analyst agents that produce R code for
