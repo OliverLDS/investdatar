@@ -1,6 +1,6 @@
 Package: investdatar
 Title: Investment Data Access and Preparation Toolkit
-Version: 0.1.5
+Version: 0.1.6
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
 Description: A toolkit for loading, transforming, and managing 

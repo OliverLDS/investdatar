@@ -333,6 +333,33 @@ succeeds. The external fallback is limited to declared rows; it never replaces
 a finite local Yahoo bar and all other symbols continue to use Yahoo through
 `quantmod`.
 
+## Instrument Catalog
+
+`get_instrument_catalog()` returns a package-owned, versioned catalog of
+factual instrument metadata for downstream consumers. It currently includes
+SPY, TLT, GLD, EUR/USD, BTC/USD, EEM, HYG, USO, plus the Yahoo fallback-backed
+USD/CNH and CSI 300 mappings. The catalog includes stable
+`instrument_id` and `canonical_symbol` fields, market taxonomy, quote currency,
+market calendar, provider identifiers, intended primary routing, fallback
+sources, intervals, and active status. It does not include editorial, ranking,
+simulation, strategy, or execution fields.
+
+```r
+catalog <- get_instrument_catalog()
+validate_instrument_catalog()
+```
+
+`canonical_symbol` is a consumer identity, not a provider query. Current Yahoo
+local-cache access and synchronization resolve through
+`provider_identifiers$yahoo`; it must not be passed directly to
+`get_completed_local_quantmod_OHLC()`. `primary_source` is intended routing
+metadata. Actual row-level provenance is the `source` value recorded by the
+synchronization result. The Yahoo Finance registry remains the sync authority.
+Catalog validation requires every Yahoo-backed instrument to exist in that
+registry and checks catalog fallback projections against its configured fallback
+declarations. Every fallback object has exactly `provider` and `symbol` fields;
+provider/symbol pairs are unique and ordered lexicographically.
+
 Daily Yahoo OHLC cache rows dated on the current UTC date are provisional even
 when open, high, low, close, and volume are finite. Source timestamps and cache
 freshness indicate retrieval timing, not that a daily bar is final. Raw reads

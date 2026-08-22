@@ -1,3 +1,10 @@
+# investdatar 0.1.6
+
+- Added a package-owned, provider-neutral instrument catalog with stable
+  consumer identities, intended provider routing, explicit taxonomy, and
+  catalog-to-Yahoo-registry validation. Yahoo fallback mappings are validated
+  projections; the Yahoo Finance registry remains the sync authority.
+
 # investdatar 0.1.5
 
 - Added optional monthly partitioned OKX and Binance candle storage with
