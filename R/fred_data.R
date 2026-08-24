@@ -58,10 +58,14 @@
   is.null(observations) || nrow(data.table::as.data.table(observations)) == 0L
 }
 
+.fred_api_query <- function(series_id, api_key, mode) {
+  list(series_id = series_id, api_key = api_key, file_type = mode)
+}
+
 # Fetch JSON from a FRED API URL and retain the response status for callers.
-.fetch_fred_json <- function(url) {
+.fetch_fred_json <- function(url, query = NULL) {
   response <- tryCatch(
-    .http_request("GET", url),
+    .http_request("GET", url, query = query),
     investdatar_http_error = function(error) {
       list(
         status_code = error$status_code,
@@ -105,12 +109,12 @@
 get_source_data_fred <- function(series_id, config = NULL) {
   config <- .get_api_config("fred", config = config)
   api_key <- config$api_key
-  url <- config$url
+  url <- paste0(config$url, "/observations")
   mode <- config$mode
-  url <- sprintf("%s/observations?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
+  query <- .fred_api_query(series_id, api_key, mode)
   
   max_attempts <- 3L
-  data <- .fetch_fred_json(url)
+  data <- .fetch_fred_json(url, query = query)
   attempts <- 1L
 
   if (.fred_observations_are_empty(data)) {
@@ -118,7 +122,7 @@ get_source_data_fred <- function(series_id, config = NULL) {
     if (.fred_metadata_is_available(metadata)) {
       while (.fred_observations_are_empty(data) && attempts < max_attempts) {
         Sys.sleep(.fred_empty_observation_retry_delay(attempts))
-        data <- .fetch_fred_json(url)
+        data <- .fetch_fred_json(url, query = query)
         attempts <- attempts + 1L
       }
       if (.fred_observations_are_empty(data)) {
@@ -173,10 +177,8 @@ get_source_utime_fred <- function(series_id, config = NULL, from_server = FALSE,
     api_key <- config$api_key
     url <- config$url
     mode <- config$mode
-    
-    url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
-    # data <- jsonlite::fromJSON(url)
-    data <- .fetch_fred_json(url)
+    query <- .fred_api_query(series_id, api_key, mode)
+    data <- .fetch_fred_json(url, query = query)
     
     update_time_str <- data$seriess$last_updated # we suppose it is central time
     out <- as.POSIXct(update_time_str, format = "%Y-%m-%d %H:%M:%S", tz = tz)
@@ -237,9 +239,8 @@ get_source_metadata_fred <- function(series_id, config = NULL) {
   api_key <- config$api_key
   url <- config$url
   mode <- config$mode
-  
-  url <- sprintf("%s?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
-  data <- .fetch_fred_json(url)
+  query <- .fred_api_query(series_id, api_key, mode)
+  data <- .fetch_fred_json(url, query = query)
   
   res <- data$seriess
   list(
@@ -453,7 +454,13 @@ sync_all_fred_registry_data <- function(registry = get_fred_registry(), config =
           updated = FALSE,
           n_rows = NA_integer_,
           n_new_rows = NA_integer_,
-          error = conditionMessage(e)
+          error = conditionMessage(e),
+          error_class = class(e)[[1L]],
+          http_status = if (inherits(e, "investdatar_fred_api_error") || inherits(e, "investdatar_http_error")) {
+            as.integer(e$status_code)
+          } else {
+            NA_integer_
+          }
         )
       }
     )
