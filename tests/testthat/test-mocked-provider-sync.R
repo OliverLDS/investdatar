@@ -29,14 +29,17 @@ test_that("sync_local_fred_data uses mocked provider functions", {
 })
 
 test_that("get_source_data_fred errors when available series returns empty observations", {
+  attempts <- 0L
   expect_error(
     testthat::with_mocked_bindings(
       .get_api_config = function(source, config = NULL) {
         list(api_key = "key", url = "https://api.stlouisfed.org/fred/series", mode = "json")
       },
       .fetch_fred_json = function(url) {
+        attempts <<- attempts + 1L
         list(observations = data.table::data.table())
       },
+      .fred_empty_observation_retry_delay = function(...) 0,
       get_source_metadata_fred = function(series_id, config = NULL) {
         list(
           title = "Available test series",
@@ -50,8 +53,118 @@ test_that("get_source_data_fred errors when available series returns empty obser
       investdatar::get_source_data_fred("SUBLPDCILTLNQ"),
       .package = "investdatar"
     ),
-    "zero rows for available series"
+    class = "investdatar_fred_empty_observations_error"
   )
+  expect_equal(attempts, 3L)
+})
+
+test_that("get_source_data_fred retries transient empty observations for available series", {
+  attempts <- 0L
+  out <- testthat::with_mocked_bindings(
+    .get_api_config = function(source, config = NULL) {
+      list(api_key = "key", url = "https://api.stlouisfed.org/fred/series", mode = "json")
+    },
+    .fetch_fred_json = function(url) {
+      attempts <<- attempts + 1L
+      if (attempts == 1L) return(list(observations = data.table::data.table()))
+      list(observations = data.table::data.table(date = "2026-08-20", value = "12.5"))
+    },
+    get_source_metadata_fred = function(series_id, config = NULL) {
+      list(start = "1990-01-01", end = "2026-08-20")
+    },
+    .fred_empty_observation_retry_delay = function(...) 0,
+    investdatar::get_source_data_fred("WLRRAA"),
+    .package = "investdatar"
+  )
+
+  expect_equal(attempts, 2L)
+  expect_equal(out$date, as.Date("2026-08-20"))
+  expect_equal(out$value, 12.5)
+})
+
+test_that("FRED JSON fetch reports HTTP and API error details", {
+  fetch <- getFromNamespace(".fetch_fred_json", "investdatar")
+  error <- testthat::with_mocked_bindings(
+    .http_request = function(...) {
+      list(
+        status_code = 400L,
+        headers = list(),
+        content = charToRaw('{"error_code":400,"error_message":"Bad API key"}'),
+        url = "https://api.stlouisfed.org/fred/series/observations"
+      )
+    },
+    tryCatch(fetch("https://api.stlouisfed.org/fred/series/observations"), error = identity),
+    .package = "investdatar"
+  )
+
+  expect_s3_class(error, "investdatar_fred_api_error")
+  expect_equal(error$status_code, 400L)
+  expect_equal(error$error_code, 400L)
+  expect_equal(error$error_message, "Bad API key")
+  expect_match(conditionMessage(error), "HTTP status 400")
+  expect_match(conditionMessage(error), "FRED error_code 400")
+})
+
+test_that("FRED JSON fetch retains successful HTTP status", {
+  fetch <- getFromNamespace(".fetch_fred_json", "investdatar")
+  out <- testthat::with_mocked_bindings(
+    .http_request = function(...) {
+      list(
+        status_code = 200L,
+        headers = list(),
+        content = charToRaw('{"observations":[]}'),
+        url = "https://api.stlouisfed.org/fred/series/observations"
+      )
+    },
+    fetch("https://api.stlouisfed.org/fred/series/observations"),
+    .package = "investdatar"
+  )
+
+  expect_equal(attr(out, "investdatar_http_status"), 200L)
+})
+
+test_that("empty FRED retries never overwrite an existing local cache", {
+  local_dir <- withr::local_tempdir()
+  local_file <- file.path(local_dir, "WOLCL.rds")
+  existing <- data.table::data.table(date = as.Date("2026-08-19"), value = 99)
+  saveRDS(existing, local_file)
+
+  expect_error(
+    testthat::with_mocked_bindings(
+      get_source_utime_fred = function(...) as.POSIXct("2026-08-20", tz = "UTC"),
+      .get_api_config = function(source, config = NULL) {
+        list(api_key = "key", url = "https://api.stlouisfed.org/fred/series", mode = "json")
+      },
+      .fetch_fred_json = function(...) list(observations = data.table::data.table()),
+      get_source_metadata_fred = function(...) list(start = "2000-01-01", end = "2026-08-20"),
+      .fred_empty_observation_retry_delay = function(...) 0,
+      investdatar::sync_local_fred_data("WOLCL", local_path = local_dir),
+      .package = "investdatar"
+    ),
+    class = "investdatar_fred_empty_observations_error"
+  )
+  expect_equal(readRDS(local_file), existing)
+})
+
+test_that("exhausted FRED empty-observation retries remain a batch failure", {
+  summary_dt <- testthat::with_mocked_bindings(
+    get_source_utime_fred = function(...) as.POSIXct("2026-08-20", tz = "UTC"),
+    .get_api_config = function(source, config = NULL) {
+      list(api_key = "key", url = "https://api.stlouisfed.org/fred/series", mode = "json")
+    },
+    .fetch_fred_json = function(...) list(observations = data.table::data.table()),
+    get_source_metadata_fred = function(...) list(start = "2000-01-01", end = "2026-08-20"),
+    .fred_empty_observation_retry_delay = function(...) 0,
+    investdatar::sync_all_fred_registry_data(
+      registry = data.table::data.table(series_id = "WMBSEC"),
+      local_path = withr::local_tempdir()
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(summary_dt$status, "error")
+  expect_false(investdatar::is_sync_run_successful(list(summary = summary_dt)))
+  expect_match(summary_dt$error, "zero rows for available series")
 })
 
 test_that("sync_local_okx_candle supports mocked latest and history fetches", {

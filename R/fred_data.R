@@ -1,7 +1,96 @@
-# Fetch JSON from a FRED API URL.
+.new_fred_api_error <- function(status_code, error_code = NULL, error_message = NULL) {
+  details <- c(
+    paste0("HTTP status ", status_code),
+    if (!is.null(error_code) && length(error_code) > 0L && !is.na(error_code)) paste0("FRED error_code ", error_code),
+    if (!is.null(error_message) && length(error_message) > 0L && !is.na(error_message) && nzchar(error_message)) paste0("FRED error_message: ", error_message)
+  )
+  structure(
+    list(
+      message = paste("FRED API request failed:", paste(details, collapse = "; ")),
+      call = NULL,
+      status_code = as.integer(status_code),
+      error_code = error_code,
+      error_message = error_message
+    ),
+    class = c("investdatar_fred_api_error", "error", "condition")
+  )
+}
+
+.new_fred_empty_observations_error <- function(series_id, attempts, metadata = NULL, status_code = NA_integer_) {
+  range <- if (!is.null(metadata) && .fred_metadata_is_available(metadata)) {
+    paste0(" (metadata observation range ", metadata$start, " to ", metadata$end, ")")
+  } else {
+    ""
+  }
+  structure(
+    list(
+      message = paste0(
+        "FRED observations endpoint returned zero rows for available series: ",
+        series_id,
+        " after ",
+        attempts,
+        " attempt(s)",
+        range,
+        "."
+      ),
+      call = NULL,
+      series_id = series_id,
+      attempts = attempts,
+      status_code = status_code,
+      metadata = metadata
+    ),
+    class = c("investdatar_fred_empty_observations_error", "error", "condition")
+  )
+}
+
+.fred_metadata_is_available <- function(metadata) {
+  !is.null(metadata) &&
+    is.character(metadata$start) && length(metadata$start) == 1L && !is.na(metadata$start) && nzchar(metadata$start) &&
+    is.character(metadata$end) && length(metadata$end) == 1L && !is.na(metadata$end) && nzchar(metadata$end)
+}
+
+.fred_empty_observation_retry_delay <- function(attempt, max_delay = 30) {
+  min(2^(attempt - 1L), max_delay)
+}
+
+.fred_observations_are_empty <- function(data) {
+  observations <- data$observations
+  is.null(observations) || nrow(data.table::as.data.table(observations)) == 0L
+}
+
+# Fetch JSON from a FRED API URL and retain the response status for callers.
 .fetch_fred_json <- function(url) {
-  res <- curl::curl_fetch_memory(url)
-  jsonlite::fromJSON(rawToChar(res$content), simplifyVector = TRUE)
+  response <- tryCatch(
+    .http_request("GET", url),
+    investdatar_http_error = function(error) {
+      list(
+        status_code = error$status_code,
+        headers = error$response_headers,
+        content = charToRaw(error$response_body),
+        url = error$url
+      )
+    }
+  )
+  status_code <- as.integer(response$status_code)
+  response_text <- .http_response_text(response)
+  data <- tryCatch(
+    jsonlite::fromJSON(response_text, simplifyVector = TRUE),
+    error = function(error) {
+      stop(
+        .new_fred_api_error(
+          status_code,
+          error_message = paste0("Invalid JSON response: ", conditionMessage(error))
+        )
+      )
+    }
+  )
+  error_code <- data$error_code
+  error_message <- data$error_message
+  if (status_code < 200L || status_code >= 300L || !is.null(error_code) || !is.null(error_message)) {
+    stop(.new_fred_api_error(status_code, error_code, error_message))
+  }
+  attr(data, "investdatar_http_status") <- status_code
+  data
 }
 
 #' Get FRED Series Data
@@ -20,31 +109,39 @@ get_source_data_fred <- function(series_id, config = NULL) {
   mode <- config$mode
   url <- sprintf("%s/observations?series_id=%s&api_key=%s&file_type=%s", url, series_id, api_key, mode)
   
-  # data <- jsonlite::fromJSON(url) curl is more stable sometimes
+  max_attempts <- 3L
   data <- .fetch_fred_json(url)
-  observations <- data$observations
+  attempts <- 1L
 
-  if (is.null(observations) || nrow(data.table::as.data.table(observations)) == 0L) {
+  if (.fred_observations_are_empty(data)) {
     metadata <- tryCatch(get_source_metadata_fred(series_id, config = config), error = function(e) NULL)
-    if (!is.null(metadata) && !is.null(metadata$start) && !is.null(metadata$end) && nzchar(metadata$start) && nzchar(metadata$end)) {
-      stop(
-        "FRED observations endpoint returned zero rows for available series: ",
-        series_id,
-        " (metadata observation range ",
-        metadata$start,
-        " to ",
-        metadata$end,
-        ").",
-        call. = FALSE
-      )
+    if (.fred_metadata_is_available(metadata)) {
+      while (.fred_observations_are_empty(data) && attempts < max_attempts) {
+        Sys.sleep(.fred_empty_observation_retry_delay(attempts))
+        data <- .fetch_fred_json(url)
+        attempts <- attempts + 1L
+      }
+      if (.fred_observations_are_empty(data)) {
+        stop(.new_fred_empty_observations_error(
+          series_id, attempts, metadata,
+          status_code = attr(data, "investdatar_http_status") %||% NA_integer_
+        ))
+      }
     }
 
-    registry <- tryCatch(get_fred_registry(), error = function(e) NULL)
-    if (!is.null(registry) && "series_id" %in% names(registry) && series_id %in% registry$series_id) {
-      stop("FRED observations endpoint returned zero rows for registered series: ", series_id, call. = FALSE)
+    if (.fred_observations_are_empty(data)) {
+      registry <- tryCatch(get_fred_registry(), error = function(e) NULL)
+      if (!is.null(registry) && "series_id" %in% names(registry) && series_id %in% registry$series_id) {
+        stop(.new_fred_empty_observations_error(
+          series_id, attempts, metadata,
+          status_code = attr(data, "investdatar_http_status") %||% NA_integer_
+        ))
+      }
+      stop("FRED observations endpoint returned zero rows for series: ", series_id, call. = FALSE)
     }
   }
-  
+
+  observations <- data$observations
   # contains "." in early GDP
   raw_values <- observations$value
   raw_values[raw_values == "."] <- NA_character_ # because the returned value is string
