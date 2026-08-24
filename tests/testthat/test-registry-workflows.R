@@ -257,12 +257,34 @@ test_that("shipped Yahoo Finance seed declares the CSI 300 fallback", {
   registry <- investdatar::get_yahoofinance_registry(registry_path)
   row <- registry[yahoo_finance_ticker == "000300.SS"]
 
-  expect_equal(nrow(registry), 58L)
+  expect_equal(nrow(registry), 72L)
   expect_equal(row$fallback_source[[1L]], "eastmoney")
   expect_equal(row$fallback_ticker[[1L]], "1.000300")
   cnh <- registry[yahoo_finance_ticker == "CNH=X"]
   expect_equal(cnh$fallback_source[[1L]], "eastmoney")
   expect_equal(cnh$fallback_ticker[[1L]], "133.USDCNH")
+})
+
+test_that("shipped Yahoo Finance seed includes all maintained heatmap dependencies", {
+  registry_path <- system.file(
+    "extdata", "config", "YahooFinance_ticker_registry.json", package = "investdatar"
+  )
+  if (!nzchar(registry_path)) {
+    registry_path <- testthat::test_path(
+      "..", "..", "inst", "extdata", "config", "YahooFinance_ticker_registry.json"
+    )
+  }
+  registry <- investdatar::get_yahoofinance_registry(registry_path)
+  dependencies <- c(
+    "AAPL", "GOOG", "BMNR", "MSTR", "COIN", "TSLA", "PLTR", "ORCL", "NVDA",
+    "AVGO", "ASML", "AMZN", "MSFT", "AMD", "IBM", "BTC-USD", "SOXX", "SPY"
+  )
+
+  expect_true(all(dependencies %in% registry$yahoo_finance_ticker))
+  expect_setequal(
+    registry[required %in% TRUE, yahoo_finance_ticker],
+    dependencies
+  )
 })
 
 test_that("Yahoo Finance runtime registry bootstraps and detects fallback drift", {
@@ -280,7 +302,14 @@ test_that("Yahoo Finance runtime registry bootstraps and detects fallback drift"
   validation <- investdatar::validate_yahoofinance_registry(runtime_path, seed_path)
   expect_false(validation$valid)
   expect_equal(validation$mismatched$yahoo_finance_ticker, "000300.SS")
-  expect_error(investdatar::bootstrap_yahoofinance_registry(runtime_path, seed_path), "required fallback declarations")
+  expect_error(investdatar::bootstrap_yahoofinance_registry(runtime_path, seed_path), "required entries")
+
+  runtime <- jsonlite::fromJSON(seed_path, simplifyDataFrame = TRUE)
+  runtime <- runtime[runtime$yahoo_finance_ticker != "AAPL", ]
+  jsonlite::write_json(runtime, runtime_path, auto_unbox = TRUE, pretty = TRUE, na = "null")
+  validation <- investdatar::validate_yahoofinance_registry(runtime_path, seed_path)
+  expect_false(validation$valid)
+  expect_equal(validation$missing_required$yahoo_finance_ticker, "AAPL")
 })
 
 test_that("Yahoo Finance sync validates its configured runtime registry before fetching", {

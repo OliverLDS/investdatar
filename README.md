@@ -295,7 +295,7 @@ only when valid local bars already establish the instrument's history, so a
 newly listed instrument is not rejected merely for lacking earlier data.
 Isolated non-finite bars are dropped rather than being allowed to overwrite a
 valid local bar; materially short windows are still rejected.
-The shipped 58-symbol seed registry is
+The shipped 72-symbol seed registry is
 `inst/extdata/config/YahooFinance_ticker_registry.json`; copy it into the
 configured runtime path when initializing a local registry. Prefer the
 deterministic bootstrap below: it creates an absent runtime registry from the
@@ -332,6 +332,12 @@ also try Yahoo's chart-range endpoint and report
 succeeds. The external fallback is limited to declared rows; it never replaces
 a finite local Yahoo bar and all other symbols continue to use Yahoo through
 `quantmod`.
+
+Some package-maintained Yahoo entries are marked `required: true` in the seed.
+An existing runtime registry must retain those ticker rows, in addition to the
+declared fallback mappings; validation fails before sync if they are missing.
+This keeps maintained dependency data in the normal Yahoo sync workflow while
+still allowing additional runtime-only ticker rows.
 
 ## Instrument Catalog
 

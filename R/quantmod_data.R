@@ -401,26 +401,30 @@ get_yahoofinance_seed_registry_path <- function() {
 
 #' Validate Yahoo Finance Runtime Registry
 #'
-#' Compare fallback declarations in a runtime registry with the package-managed
-#' seed. Additional runtime-only ticker metadata is permitted; every seed
-#' fallback declaration must be present unchanged.
+#' Compare required ticker entries and fallback declarations in a runtime
+#' registry with the package-managed seed. Additional runtime-only ticker
+#' metadata is permitted. Seed entries with `required: true` must be present;
+#' every seed fallback declaration must be present unchanged.
 #'
 #' @param registry_path Runtime registry JSON path.
 #' @param seed_path Package seed registry JSON path.
 #'
-#' @return A list with `valid`, `missing`, and `mismatched` data tables.
+#' @return A list with `valid`, `missing`, `mismatched`, and
+#'   `missing_required` data tables.
 #' @export
 validate_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path(),
                                             seed_path = get_yahoofinance_seed_registry_path()) {
-  required <- c("yahoo_finance_ticker", "fallback_source", "fallback_ticker")
-  seed <- .read_json_registry(seed_path, empty_cols = required)
-  seed <- seed[!is.na(fallback_source) & nzchar(fallback_source)]
+  registry_columns <- c("yahoo_finance_ticker", "fallback_source", "fallback_ticker")
+  seed_all <- .read_json_registry(seed_path, empty_cols = c(registry_columns, "required"))
+  seed_required <- seed_all[required %in% TRUE, .(yahoo_finance_ticker)]
+  seed <- seed_all[!is.na(fallback_source) & nzchar(fallback_source)]
   runtime <- if (file.exists(registry_path)) {
-    .read_json_registry(registry_path, empty_cols = required)
+    .read_json_registry(registry_path, empty_cols = registry_columns)
   } else {
     data.table::data.table(yahoo_finance_ticker = character(), fallback_source = character(), fallback_ticker = character())
   }
-  runtime <- runtime[, ..required]
+  runtime <- runtime[, ..registry_columns]
+  missing_required <- seed_required[!runtime, on = "yahoo_finance_ticker"]
   missing <- seed[!runtime, on = "yahoo_finance_ticker"]
   matched <- seed[runtime, on = "yahoo_finance_ticker", nomatch = 0L, allow.cartesian = FALSE]
   mismatched <- matched[
@@ -428,7 +432,12 @@ validate_yahoofinance_registry <- function(registry_path = get_yahoofinance_regi
     .(yahoo_finance_ticker, fallback_source, fallback_ticker,
       runtime_fallback_source = i.fallback_source, runtime_fallback_ticker = i.fallback_ticker)
   ]
-  list(valid = nrow(missing) == 0L && nrow(mismatched) == 0L, missing = missing, mismatched = mismatched)
+  list(
+    valid = nrow(missing_required) == 0L && nrow(missing) == 0L && nrow(mismatched) == 0L,
+    missing = missing,
+    mismatched = mismatched,
+    missing_required = missing_required
+  )
 }
 
 #' Bootstrap Yahoo Finance Runtime Registry
@@ -454,7 +463,7 @@ bootstrap_yahoofinance_registry <- function(registry_path = get_yahoofinance_reg
   validation <- validate_yahoofinance_registry(registry_path, seed_path)
   if (!validation$valid) {
     stop(
-      "Yahoo Finance runtime registry is missing or has changed required fallback declarations. ",
+      "Yahoo Finance runtime registry is missing required entries or has changed fallback declarations. ",
       "Reinitialize it from the package seed or update the declarations manually.",
       call. = FALSE
     )
@@ -613,7 +622,7 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
     validation <- validate_yahoofinance_registry(registry_path)
     if (!validation$valid) {
       stop(
-        "Yahoo Finance runtime registry is missing or has changed required fallback declarations. ",
+        "Yahoo Finance runtime registry is missing required entries or has changed fallback declarations. ",
         "Restore the required entries from the package seed, or back up the existing file and ",
         "recreate it with bootstrap_yahoofinance_registry().",
         call. = FALSE

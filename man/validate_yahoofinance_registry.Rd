@@ -15,10 +15,12 @@ validate_yahoofinance_registry(
 \item{seed_path}{Package seed registry JSON path.}
 }
 \value{
-A list with \code{valid}, \code{missing}, and \code{mismatched} data tables.
+A list with \code{valid}, \code{missing}, \code{mismatched}, and
+\code{missing_required} data tables.
 }
 \description{
-Compare fallback declarations in a runtime registry with the package-managed
-seed. Additional runtime-only ticker metadata is permitted; every seed
-fallback declaration must be present unchanged.
+Compare required ticker entries and fallback declarations in a runtime
+registry with the package-managed seed. Additional runtime-only ticker
+metadata is permitted. Seed entries with \code{required: true} must be present;
+every seed fallback declaration must be present unchanged.
 }
