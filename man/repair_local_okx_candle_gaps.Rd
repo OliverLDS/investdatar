@@ -20,7 +20,8 @@ repair_local_okx_candle_gaps(
 
 \item{bar}{Candle interval.}
 
-\item{before}{Character/numeric vector of OKX history pagination cursors.}
+\item{before}{Character, numeric, or date-time vector of OKX history
+pagination cursors. Date-time cursors are interpreted in \code{tz}.}
 
 \item{config}{Optional OKX API config. If omitted, defaults from the
 package config and \code{OKX_API_KEY} / \code{OKX_SECRET_KEY} /

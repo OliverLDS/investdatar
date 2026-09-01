@@ -90,7 +90,8 @@ get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config = NULL
 #'
 #' @param inst_id Instrument identifier.
 #' @param bar Candle interval.
-#' @param before Optional pagination cursor.
+#' @param before Optional pagination cursor. Date-time cursors are interpreted
+#'   in `tz` and sent to OKX as exact Unix-millisecond values.
 #' @param limit Integer page size.
 #' @param config Optional OKX API config. If omitted, defaults from the
 #'   package config and `OKX_API_KEY` / `OKX_SECRET_KEY` /
@@ -185,7 +186,8 @@ sync_local_okx_candle <- function(inst_id, bar, config = NULL, local_path = NULL
 #' Fetches multiple OKX historical candle pages in memory and writes the merged
 #' repair result to local storage with one `sync_local_data()` call.
 #'
-#' @param before Character/numeric vector of OKX history pagination cursors.
+#' @param before Character, numeric, or date-time vector of OKX history
+#'   pagination cursors. Date-time cursors are interpreted in `tz`.
 #' @inheritParams sync_local_okx_candle
 #'
 #' @return A sync result list.

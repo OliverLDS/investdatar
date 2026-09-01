@@ -345,6 +345,38 @@ test_that("repair_local_okx_candle_gaps fetches multiple pages and writes once",
   expect_equal(nrow(local_dt), 2L)
 })
 
+test_that("repair_local_okx_candle_gaps accepts modern UTC date-time cursors", {
+  local_dir <- withr::local_tempdir()
+  cursor <- as.POSIXct("2026-01-15 08:00:00", tz = "UTC")
+  captured_before <- NULL
+
+  res <- testthat::with_mocked_bindings(
+    get_source_hist_data_okx_candle = function(inst_id, bar, before = NULL, limit = 100L, config, tz = "UTC") {
+      captured_before <<- before
+      data.table::data.table(
+        source = "okx",
+        symbol = inst_id,
+        interval = bar,
+        datetime = cursor - 4 * 60 * 60,
+        date = as.Date(cursor - 4 * 60 * 60),
+        open = 1,
+        high = 2,
+        low = 0.5,
+        close = 1.5,
+        volume = 10,
+        confirm = 1L
+      )
+    },
+    investdatar::repair_local_okx_candle_gaps(
+      "BTC-USDT-SWAP", "4H", before = cursor, config = list(), local_path = local_dir, limit = 300L
+    ),
+    .package = "investdatar"
+  )
+
+  expect_true(res$updated)
+  expect_identical(captured_before, cursor)
+})
+
 test_that("sync_local_binance_klines writes data under the binance local layout", {
   local_dir <- withr::local_tempdir()
 

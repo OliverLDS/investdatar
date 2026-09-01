@@ -18,7 +18,8 @@ get_source_hist_data_okx_candle(
 
 \item{bar}{Candle interval.}
 
-\item{before}{Optional pagination cursor.}
+\item{before}{Optional pagination cursor. Date-time cursors are interpreted
+in \code{tz} and sent to OKX as exact Unix-millisecond values.}
 
 \item{limit}{Integer page size.}
 
