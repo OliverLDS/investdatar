@@ -270,6 +270,38 @@ test_that("sync_local_okx_candle supports mocked latest and history fetches", {
   expect_equal(local_dt$datetime[[1]], as.POSIXct("2026-03-25 16:00:00", tz = "UTC"))
 })
 
+test_that("historical OKX candles use exact modern millisecond cursors", {
+  response <- list(
+    code = "0",
+    msg = "",
+    data = matrix(c(
+      "1768464000000", "100", "110", "90", "105", "10", "10", "1000", "1",
+      "1768449600000", "99", "109", "89", "104", "9", "9", "900", "0"
+    ), nrow = 2L, byrow = TRUE)
+  )
+
+  dt <- testthat::with_mocked_bindings(
+    .http_get_json = function(url, query = NULL, ...) {
+      expect_equal(url, "https://www.okx.com/api/v5/market/history-candles")
+      expect_equal(query$instId, "BTC-USDT-SWAP")
+      expect_equal(query$bar, "4H")
+      expect_equal(query$after, "1768464000000")
+      expect_equal(query$limit, 300L)
+      response
+    },
+    investdatar::get_source_hist_data_okx_candle(
+      "BTC-USDT-SWAP", "4H",
+      before = as.POSIXct("2026-01-15 08:00:00", tz = "UTC"),
+      limit = 300L
+    ),
+    .package = "investdatar"
+  )
+
+  expect_equal(nrow(dt), 1L)
+  expect_equal(dt$datetime[[1L]], as.POSIXct("2026-01-15 08:00:00", tz = "UTC"))
+  expect_equal(dt$close[[1L]], 105)
+})
+
 test_that("sync_local_okx_candle uses default okx config when config is omitted", {
   local_dir <- withr::local_tempdir()
   fetched_cfg <- list(api_key = "okx-key", secret_key = "okx-secret", passphrase = "okx-pass")

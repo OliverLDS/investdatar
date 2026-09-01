@@ -101,10 +101,52 @@ get_source_data_okx_candle <- function(inst_id, bar, limit = 100L, config = NULL
 #' @return `data.table` or `NULL`.
 #' @export
 get_source_hist_data_okx_candle <- function(inst_id, bar, before = NULL, limit = 100L, config = NULL, tz = "UTC") {
-  config <- .get_api_config("okx", config = config)
-  .require_suggested_package("okxr", "to retrieve OKX historical candles.")
-  dt <- okxr::get_market_history_candles(inst_id, bar, before = before, limit = limit, config = config, tz = tz)
+  before_ms <- .okx_history_cursor_to_ms(before, tz = tz)
+  response <- .http_get_json(
+    "https://www.okx.com/api/v5/market/history-candles",
+    query = list(instId = inst_id, bar = bar, after = before_ms, limit = as.integer(limit))
+  )
+  dt <- .okx_history_candle_response_to_table(response, tz = tz)
   .normalize_okx_candles(dt, inst_id = inst_id, bar = bar)
+}
+
+.okx_history_cursor_to_ms <- function(before, tz = "UTC") {
+  if (is.null(before)) return(NULL)
+  if (length(before) != 1L) stop("before must be a single OKX history cursor.", call. = FALSE)
+
+  numeric_cursor <- suppressWarnings(as.numeric(before))
+  seconds <- if (!is.na(numeric_cursor) && is.character(before) && grepl("^[0-9]+(?:[.][0-9]+)?$", before)) {
+    if (numeric_cursor >= 1e11) numeric_cursor / 1000 else numeric_cursor
+  } else if (!is.na(numeric_cursor) && is.numeric(before)) {
+    if (numeric_cursor >= 1e11) numeric_cursor / 1000 else numeric_cursor
+  } else {
+    timestamp <- as.POSIXct(before, tz = tz)
+    if (is.na(timestamp)) stop("before must be a parseable date-time or Unix timestamp.", call. = FALSE)
+    as.numeric(timestamp)
+  }
+  formatC(seconds * 1000, format = "f", digits = 0)
+}
+
+.okx_history_candle_response_to_table <- function(response, tz = "UTC") {
+  if (!identical(as.character(response$code), "0")) {
+    stop(
+      "OKX history candles request failed",
+      if (!is.null(response$code)) paste0(" (code ", response$code, ")"),
+      if (!is.null(response$msg) && nzchar(response$msg)) paste0(": ", response$msg),
+      call. = FALSE
+    )
+  }
+  raw <- response$data
+  if (is.null(raw) || length(raw) == 0L) return(NULL)
+  dt <- data.table::as.data.table(raw)
+  if (ncol(dt) < 9L) stop("OKX history candles response has an invalid data shape.", call. = FALSE)
+  data.table::setnames(
+    dt,
+    old = names(dt)[seq_len(9L)],
+    new = c("timestamp", "open", "high", "low", "close", "volume", "volCcy", "volCcyQuote", "confirm")
+  )
+  dt[, timestamp := as.POSIXct(as.numeric(timestamp) / 1000, origin = "1970-01-01", tz = tz)]
+  dt
 }
 
 #' Get Local OKX Candle Data
