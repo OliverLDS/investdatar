@@ -11,7 +11,9 @@
 
 .instrument_catalog_market_calendars <- c("XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7")
 
-.instrument_catalog_instrument_types <- c("etf", "equity_index", "spot_fx", "spot_crypto")
+.instrument_catalog_instrument_types <- c("etf", "equity_index", "spot_fx", "spot_crypto", "perpetual_swap")
+
+.instrument_catalog_price_frequencies <- c("1d", "4h")
 
 .instrument_catalog_seed_path <- function() {
   path <- system.file("extdata", "instrument_catalog.json", package = "investdatar")
@@ -37,7 +39,9 @@
     scalar_names <- c(
       "schema_version", "instrument_id", "canonical_symbol", "display_name",
       "asset_class", "instrument_type", "quote_currency", "market_calendar",
-      "price_frequency", "active"
+      "price_frequency", "contract_size", "contract_size_currency",
+      "quantity_step", "quantity_unit", "settlement_currency",
+      "contract_structure", "active"
     )
     scalar <- lapply(scalar_names, function(name) record[[name]] %||% NA)
     names(scalar) <- scalar_names
@@ -92,9 +96,13 @@
 #' `market_calendar` must be one of `XNYS`, `XSHG`, `FX_24_5`, or
 #' `CRYPTO_24_7`. `provider_identifiers` is a non-empty named list whose
 #' values are non-empty provider symbols. `quote_currency` is a three-letter
-#' uppercase currency code; `CNH` is permitted as the conventional offshore
-#' Chinese-yuan quote code. `price_frequency` and every
-#' `supported_intervals` entry are currently limited to `1d`.
+#' uppercase currency code, or the recognized stablecoin quote code `USDT` or
+#' `USDC`; `CNH` is permitted as the conventional offshore Chinese-yuan quote
+#' code. `price_frequency` and every `supported_intervals` entry are limited
+#' to `1d` or `4h` and must match
+#' `price_frequency`. Perpetual swaps must provide an OKX identifier and
+#' positive `contract_size` and `quantity_step`, their units, settlement
+#' currency, and `contract_structure = "linear_usdt_margined_perpetual"`.
 #' Each `fallback_sources` object has exactly `provider` and `symbol` fields;
 #' pairs must be unique and ordered lexicographically by provider then symbol.
 #'
@@ -155,19 +163,19 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
     if (!.instrument_catalog_is_scalar_string(record$market_calendar) || !record$market_calendar %in% .instrument_catalog_market_calendars) {
       errors <- .instrument_catalog_add_error(errors, "market_calendar", instrument_id, "market_calendar is not an allowed enum value.")
     }
-    if (!.instrument_catalog_is_scalar_string(record$quote_currency) || !grepl("^[A-Z]{3}$", record$quote_currency)) {
-      errors <- .instrument_catalog_add_error(errors, "quote_currency", instrument_id, "quote_currency must be a three-letter uppercase code.")
+    if (!.instrument_catalog_is_scalar_string(record$quote_currency) || !grepl("^[A-Z]{3}$|^USDT$|^USDC$", record$quote_currency)) {
+      errors <- .instrument_catalog_add_error(errors, "quote_currency", instrument_id, "quote_currency must be a three-letter uppercase code or USDT/USDC.")
     }
-    if (!identical(record$price_frequency, "1d")) {
-      errors <- .instrument_catalog_add_error(errors, "price_frequency", instrument_id, "price_frequency must be '1d'.")
+    if (!.instrument_catalog_is_scalar_string(record$price_frequency) || !record$price_frequency %in% .instrument_catalog_price_frequencies) {
+      errors <- .instrument_catalog_add_error(errors, "price_frequency", instrument_id, "price_frequency must be '1d' or '4h'.")
     }
     if (!is.logical(record$active) || length(record$active) != 1L || is.na(record$active)) {
       errors <- .instrument_catalog_add_error(errors, "active", instrument_id, "active must be a non-null logical scalar.")
     }
 
     intervals <- unlist(record$supported_intervals, use.names = FALSE)
-    if (!is.character(intervals) || length(intervals) == 0L || any(!intervals %in% "1d")) {
-      errors <- .instrument_catalog_add_error(errors, "supported_intervals", instrument_id, "supported_intervals must be a non-empty array containing only '1d'.")
+    if (!is.character(intervals) || length(intervals) == 0L || any(!intervals %in% .instrument_catalog_price_frequencies) || !identical(intervals, record$price_frequency)) {
+      errors <- .instrument_catalog_add_error(errors, "supported_intervals", instrument_id, "supported_intervals must contain exactly price_frequency ('1d' or '4h').")
     }
 
     identifiers <- record$provider_identifiers
@@ -178,6 +186,33 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
     primary <- record$primary_source
     if (!is.list(primary) || !.instrument_catalog_is_scalar_string(primary$provider) || !.instrument_catalog_is_scalar_string(primary$symbol) || is.null(identifiers[[primary$provider]]) || !identical(identifiers[[primary$provider]], primary$symbol)) {
       errors <- .instrument_catalog_add_error(errors, "primary_source", instrument_id, "primary_source must identify a matching provider_identifiers entry.")
+    }
+
+    if (identical(record$instrument_type, "perpetual_swap")) {
+      if (!.instrument_catalog_is_scalar_string(identifiers[["okx"]])) {
+        errors <- .instrument_catalog_add_error(errors, "okx_mapping", instrument_id, "Perpetual swaps must provide a non-empty OKX identifier.")
+      }
+      if (!identical(record$price_frequency, "4h")) {
+        errors <- .instrument_catalog_add_error(errors, "perpetual_interval", instrument_id, "Perpetual swaps must use price_frequency '4h'.")
+      }
+      if (!is.numeric(record$contract_size) || length(record$contract_size) != 1L || !is.finite(record$contract_size) || record$contract_size <= 0) {
+        errors <- .instrument_catalog_add_error(errors, "contract_size", instrument_id, "Perpetual swaps must have a positive numeric contract_size.")
+      }
+      if (!.instrument_catalog_is_scalar_string(record$contract_size_currency)) {
+        errors <- .instrument_catalog_add_error(errors, "contract_size_currency", instrument_id, "Perpetual swaps must state contract_size_currency.")
+      }
+      if (!is.numeric(record$quantity_step) || length(record$quantity_step) != 1L || !is.finite(record$quantity_step) || record$quantity_step <= 0) {
+        errors <- .instrument_catalog_add_error(errors, "quantity_step", instrument_id, "Perpetual swaps must have a positive numeric quantity_step.")
+      }
+      if (!identical(record$quantity_unit, "contracts")) {
+        errors <- .instrument_catalog_add_error(errors, "quantity_unit", instrument_id, "Perpetual swap quantity_unit must be 'contracts'.")
+      }
+      if (!identical(record$settlement_currency, "USDT")) {
+        errors <- .instrument_catalog_add_error(errors, "settlement_currency", instrument_id, "Perpetual swaps must settle in USDT.")
+      }
+      if (!identical(record$contract_structure, "linear_usdt_margined_perpetual")) {
+        errors <- .instrument_catalog_add_error(errors, "contract_structure", instrument_id, "Perpetual swaps must declare linear_usdt_margined_perpetual.")
+      }
     }
 
     catalog_fallbacks <- record$fallback_sources
@@ -263,6 +298,110 @@ get_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_path(
   if (isTRUE(validate) && !validation$valid) {
     messages <- paste(validation$errors$instrument_id, validation$errors$message, sep = ": ")
     stop("Instrument catalog validation failed: ", paste(messages, collapse = "; "), call. = FALSE)
+  }
+  validation$catalog[]
+}
+
+.is_okx_perpetual_catalog_row <- function(primary_source, instrument_type, price_frequency) {
+  identical(instrument_type, "perpetual_swap") &&
+    identical(price_frequency, "4h") &&
+    is.list(primary_source) &&
+    identical(primary_source$provider, "okx")
+}
+
+#' Validate the 4-Hour OKX Perpetual Catalog
+#'
+#' Validates the provider-neutral catalog and returns its active or inactive
+#' 4-hour OKX perpetual-swap subset. When `local_path` is supplied, every
+#' active instrument must have a non-empty local cache with a finite completed
+#' OHLC row. OKX cache ingestion already excludes unconfirmed candles, so this
+#' check never treats an in-progress candle as usable.
+#'
+#' @inheritParams validate_instrument_catalog
+#' @param local_path Optional local OKX candle-cache directory. Supplying it
+#'   enables catalog-to-cache validation.
+#' @param as_of UTC time used to exclude cache rows at or after the cutoff.
+#'
+#' @return A list with `valid`, `errors`, `catalog`, and `cache_status` data
+#'   tables.
+#' @export
+validate_okx_perpetual_catalog <- function(catalog_path = .instrument_catalog_seed_path(),
+                                           local_path = NULL,
+                                           as_of = Sys.time()) {
+  validation <- validate_instrument_catalog(catalog_path = catalog_path)
+  catalog <- validation$catalog[
+    vapply(seq_len(.N), function(i) {
+      .is_okx_perpetual_catalog_row(primary_source[[i]], instrument_type[[i]], price_frequency[[i]])
+    }, logical(1))
+  ]
+  errors <- data.table::copy(validation$errors)
+  okx_identifiers <- vapply(catalog$provider_identifiers, `[[`, character(1), "okx")
+  for (inst_id in unique(okx_identifiers[duplicated(okx_identifiers)])) {
+    errors <- .instrument_catalog_add_error(
+      errors, "unique_okx_identifier", NA_character_,
+      paste0("OKX identifier must be unique: ", inst_id)
+    )
+  }
+  cache_status <- data.table::data.table(
+    instrument_id = character(), okx_inst_id = character(), cache_usable = logical(),
+    completed_rows = integer(), latest_completed = as.POSIXct(character(), tz = "UTC"), message = character()
+  )
+
+  if (!is.null(local_path)) {
+    cutoff <- as.POSIXct(as_of, tz = "UTC")
+    if (is.na(cutoff)) stop("as_of must be a valid UTC date-time.", call. = FALSE)
+    for (i in seq_len(nrow(catalog))) {
+      inst_id <- catalog$provider_identifiers[[i]]$okx
+      local <- tryCatch(
+        get_local_okx_candle(inst_id, "4H", local_path = local_path),
+        error = function(e) NULL
+      )
+      completed <- if (is.null(local) || !all(c("source", "symbol", "interval", "datetime") %in% names(local))) {
+        NULL
+      } else {
+        local[source == "okx" & symbol == inst_id & interval == "4H" & datetime < cutoff]
+      }
+      ohlc <- c("open", "high", "low", "close")
+      usable <- !is.null(completed) && nrow(completed) > 0L &&
+        all(ohlc %in% names(completed)) &&
+        all(is.finite(as.numeric(completed[.N, ..ohlc])))
+      latest <- if (!is.null(completed) && nrow(completed) > 0L) max(completed$datetime) else as.POSIXct(NA, tz = "UTC")
+      message <- if (usable) "ok" else "Missing usable completed 4H OKX OHLC cache."
+      cache_status <- data.table::rbindlist(list(cache_status, data.table::data.table(
+        instrument_id = catalog$instrument_id[[i]], okx_inst_id = inst_id,
+        cache_usable = usable, completed_rows = if (is.null(completed)) 0L else nrow(completed),
+        latest_completed = latest, message = message
+      )))
+      if (!usable && isTRUE(catalog$active[[i]])) {
+        errors <- .instrument_catalog_add_error(errors, "okx_cache", catalog$instrument_id[[i]], message)
+      }
+    }
+  }
+
+  list(valid = nrow(errors) == 0L, errors = errors[], catalog = catalog[], cache_status = cache_status[])
+}
+
+#' Get the 4-Hour OKX Perpetual Catalog
+#'
+#' Returns the provider-neutral 4-hour OKX perpetual-swap subset. Its
+#' `canonical_symbol` values are consumer identities; local cache access uses
+#' `provider_identifiers$okx` with [get_local_okx_candle()]. Contract metadata
+#' describes OKX linear USDT-margined perpetuals; actual cached row provenance
+#' remains in the synchronized data.
+#'
+#' @inheritParams validate_okx_perpetual_catalog
+#' @param validate Logical. Validate the catalog before returning it.
+#'
+#' @return A `data.table` with one row per 4-hour OKX perpetual instrument.
+#' @export
+get_okx_perpetual_catalog <- function(catalog_path = .instrument_catalog_seed_path(),
+                                      local_path = NULL,
+                                      as_of = Sys.time(),
+                                      validate = TRUE) {
+  validation <- validate_okx_perpetual_catalog(catalog_path, local_path, as_of)
+  if (isTRUE(validate) && !validation$valid) {
+    messages <- paste(validation$errors$instrument_id, validation$errors$message, sep = ": ")
+    stop("OKX perpetual catalog validation failed: ", paste(messages, collapse = "; "), call. = FALSE)
   }
   validation$catalog[]
 }

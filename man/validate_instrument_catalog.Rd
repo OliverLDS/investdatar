@@ -35,9 +35,13 @@ may be an empty array. \code{asset_class} must be one of \code{equity},
 \code{market_calendar} must be one of \code{XNYS}, \code{XSHG}, \code{FX_24_5}, or
 \code{CRYPTO_24_7}. \code{provider_identifiers} is a non-empty named list whose
 values are non-empty provider symbols. \code{quote_currency} is a three-letter
-uppercase currency code; \code{CNH} is permitted as the conventional offshore
-Chinese-yuan quote code. \code{price_frequency} and every
-\code{supported_intervals} entry are currently limited to \verb{1d}.
+uppercase currency code, or the recognized stablecoin quote code \code{USDT} or
+\code{USDC}; \code{CNH} is permitted as the conventional offshore Chinese-yuan quote
+code. \code{price_frequency} and every \code{supported_intervals} entry are limited
+to \verb{1d} or \verb{4h} and must match
+\code{price_frequency}. Perpetual swaps must provide an OKX identifier and
+positive \code{contract_size} and \code{quantity_step}, their units, settlement
+currency, and \code{contract_structure = "linear_usdt_margined_perpetual"}.
 Each \code{fallback_sources} object has exactly \code{provider} and \code{symbol} fields;
 pairs must be unique and ordered lexicographically by provider then symbol.
 }

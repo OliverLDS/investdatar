@@ -344,7 +344,8 @@ still allowing additional runtime-only ticker rows.
 `get_instrument_catalog()` returns a package-owned, versioned catalog of
 factual instrument metadata for downstream consumers. It currently includes
 SPY, TLT, GLD, EUR/USD, BTC/USD, EEM, HYG, USO, plus the Yahoo fallback-backed
-USD/CNH and CSI 300 mappings. The catalog includes stable
+USD/CNH and CSI 300 mappings, and a separate six-instrument 4-hour OKX
+perpetual-swap subset. The catalog includes stable
 `instrument_id` and `canonical_symbol` fields, market taxonomy, quote currency,
 market calendar, provider identifiers, intended primary routing, fallback
 sources, intervals, and active status. It does not include editorial, ranking,
@@ -353,6 +354,12 @@ simulation, strategy, or execution fields.
 ```r
 catalog <- get_instrument_catalog()
 validate_instrument_catalog()
+
+# Provider-neutral 4H linear USDT-margined perpetual swaps.
+okx_perpetuals <- get_okx_perpetual_catalog()
+validate_okx_perpetual_catalog(
+  local_path = "~/Documents/2025/_2025-06-17_Crypto_Data/okx"
+)
 ```
 
 `canonical_symbol` is a consumer identity, not a provider query. Current Yahoo
@@ -365,6 +372,17 @@ Catalog validation requires every Yahoo-backed instrument to exist in that
 registry and checks catalog fallback projections against its configured fallback
 declarations. Every fallback object has exactly `provider` and `symbol` fields;
 provider/symbol pairs are unique and ordered lexicographically.
+
+`get_okx_perpetual_catalog()` returns the 4-hour OKX perpetual catalog entries,
+currently BTC, ETH, SOL, BNB, XRP, and DOGE against USDT. Their
+`provider_identifiers$okx` values resolve local cache filenames;
+their `canonical_symbol` values are consumer identities. Contract metadata is
+the current OKX public-instruments specification: `contract_size`,
+`quantity_step`, `settlement_currency`, and
+`contract_structure = "linear_usdt_margined_perpetual"`. Supplying
+`local_path` to `validate_okx_perpetual_catalog()` requires every active entry
+to have a non-empty cache with a finite completed OHLC row. Normal OKX
+ingestion continues to exclude unconfirmed (`confirm != 1`) candles.
 
 Daily Yahoo OHLC cache rows dated on the current UTC date are provisional even
 when open, high, low, close, and volume are finite. Source timestamps and cache

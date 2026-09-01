@@ -35,6 +35,7 @@ test_that("instrument catalog has a valid provider-neutral schema", {
   expect_true(all(validation$catalog$market_calendar %in% c(
     "XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7"
   )))
+  expect_true(all(validation$catalog$price_frequency %in% c("1d", "4h")))
 })
 
 test_that("instrument catalog has unique stable identifiers and symbols", {
@@ -57,6 +58,92 @@ test_that("instrument catalog includes the initial eight instruments", {
   expect_true(all(initial_symbols %in% catalog$canonical_symbol))
   expect_true(all(c("USD/CNH", "CSI300") %in% catalog$canonical_symbol))
   expect_equal(catalog[canonical_symbol == "SPY", provider_identifiers][[1L]]$yahoo, "SPY")
+})
+
+test_that("OKX perpetual catalog contains the six maintained 4H instruments", {
+  catalog <- investdatar::get_okx_perpetual_catalog(
+    catalog_path = .instrument_catalog_test_path()
+  )
+  expected <- c(
+    "BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP",
+    "BNB-USDT-SWAP", "XRP-USDT-SWAP", "DOGE-USDT-SWAP"
+  )
+
+  expect_equal(nrow(catalog), 6L)
+  expect_setequal(vapply(catalog$provider_identifiers, `[[`, character(1), "okx"), expected)
+  expect_equal(anyDuplicated(vapply(catalog$provider_identifiers, `[[`, character(1), "okx")), 0L)
+  expect_true(all(catalog$asset_class == "cryptocurrency"))
+  expect_true(all(catalog$instrument_type == "perpetual_swap"))
+  expect_true(all(catalog$quote_currency == "USDT"))
+  expect_true(all(catalog$market_calendar == "CRYPTO_24_7"))
+  expect_true(all(catalog$price_frequency == "4h"))
+  expect_true(all(vapply(catalog$supported_intervals, identical, logical(1), "4h")))
+  expect_true(all(catalog$contract_size > 0))
+  expect_true(all(catalog$quantity_step > 0))
+  expect_true(all(catalog$quantity_unit == "contracts"))
+  expect_true(all(catalog$settlement_currency == "USDT"))
+  expect_true(all(catalog$contract_structure == "linear_usdt_margined_perpetual"))
+})
+
+test_that("OKX perpetual catalog validates active completed-cache mappings", {
+  local_dir <- withr::local_tempdir()
+  catalog <- investdatar::get_okx_perpetual_catalog(
+    catalog_path = .instrument_catalog_test_path()
+  )
+  for (inst_id in vapply(catalog$provider_identifiers, `[[`, character(1), "okx")) {
+    local <- data.table::data.table(
+      source = "okx", symbol = inst_id, interval = "4H",
+      datetime = as.POSIXct("2026-08-31 20:00:00", tz = "UTC"),
+      date = as.Date("2026-08-31"), open = 1, high = 2, low = 0.5,
+      close = 1.5, volume = 10
+    )
+    saveRDS(local, file.path(local_dir, sprintf("%s_4H.rds", inst_id)))
+  }
+
+  validation <- investdatar::validate_okx_perpetual_catalog(
+    catalog_path = .instrument_catalog_test_path(),
+    local_path = local_dir,
+    as_of = as.POSIXct("2026-09-01 00:00:00", tz = "UTC")
+  )
+  expect_true(validation$valid)
+  expect_equal(nrow(validation$cache_status), 6L)
+  expect_true(all(validation$cache_status$cache_usable))
+
+  unlink(file.path(local_dir, "BTC-USDT-SWAP_4H.rds"))
+  missing_cache <- investdatar::validate_okx_perpetual_catalog(
+    catalog_path = .instrument_catalog_test_path(),
+    local_path = local_dir,
+    as_of = as.POSIXct("2026-09-01 00:00:00", tz = "UTC")
+  )
+  expect_false(missing_cache$valid)
+  expect_true(any(missing_cache$errors$check == "okx_cache"))
+})
+
+test_that("daily and 4H catalog intervals remain separate", {
+  catalog <- investdatar::get_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path()
+  )
+  daily <- catalog[price_frequency == "1d"]
+  perpetual <- investdatar::get_okx_perpetual_catalog(.instrument_catalog_test_path())
+
+  expect_true(all(vapply(daily$supported_intervals, identical, logical(1), "1d")))
+  expect_true(all(vapply(perpetual$primary_source, function(x) identical(x$provider, "okx"), logical(1))))
+  expect_false(any(vapply(perpetual$provider_identifiers, function(x) "yahoo" %in% names(x), logical(1))))
+})
+
+test_that("perpetual contract metadata and interval requirements are enforced", {
+  records <- jsonlite::read_json(.instrument_catalog_test_path(), simplifyVector = FALSE)
+  perpetual <- which(vapply(records, function(x) identical(x$instrument_type, "perpetual_swap"), logical(1)))[[1L]]
+  records[[perpetual]]$contract_structure <- NULL
+  records[[perpetual]]$price_frequency <- "1d"
+  records[[perpetual]]$supported_intervals <- list("1d")
+  bad_path <- file.path(withr::local_tempdir(), "bad-perpetual-contract.json")
+  jsonlite::write_json(records, bad_path, auto_unbox = TRUE, pretty = TRUE)
+
+  validation <- investdatar::validate_instrument_catalog(bad_path, .yahoo_registry_test_path())
+  expect_false(validation$valid)
+  expect_true(any(validation$errors$check == "contract_structure"))
+  expect_true(any(validation$errors$check == "perpetual_interval"))
 })
 
 test_that("instrument catalog Yahoo mappings and fallbacks match the sync registry", {
