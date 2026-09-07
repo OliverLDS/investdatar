@@ -22,5 +22,7 @@ A list with \code{valid}, \code{missing}, \code{mismatched}, and
 Compare required ticker entries and fallback declarations in a runtime
 registry with the package-managed seed. Additional runtime-only ticker
 metadata is permitted. Seed entries with \code{required: true} must be present;
-every seed fallback declaration must be present unchanged.
+every seed fallback declaration must be present unchanged. Missing seed-owned
+degraded-cache policy fields are projected by \code{get_yahoofinance_registry()};
+explicitly weaker supplied values are invalid.
 }

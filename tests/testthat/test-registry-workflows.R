@@ -312,6 +312,35 @@ test_that("Yahoo Finance runtime registry bootstraps and detects fallback drift"
   expect_equal(validation$missing_required$yahoo_finance_ticker, "AAPL")
 })
 
+test_that("old Yahoo runtime registries receive seed policy in memory without mutation", {
+  runtime_path <- file.path(withr::local_tempdir(), "YahooFinance_ticker_registry.json")
+  seed_path <- system.file("extdata", "config", "YahooFinance_ticker_registry.json", package = "investdatar")
+  jsonlite::write_json(list(
+    list(yahoo_finance_ticker = "CNH=X", fallback_source = "eastmoney", fallback_ticker = "133.USDCNH", label = "local"),
+    list(yahoo_finance_ticker = "000300.SS", fallback_source = "eastmoney", fallback_ticker = "1.000300"),
+    list(yahoo_finance_ticker = "LOCAL", label = "extra")
+  ), runtime_path, auto_unbox = TRUE, pretty = TRUE)
+
+  effective <- investdatar::get_yahoofinance_registry(runtime_path)
+  expect_true(effective[yahoo_finance_ticker == "CNH=X", degraded_cache_enabled][[1L]])
+  expect_equal(effective[yahoo_finance_ticker == "000300.SS", degraded_cache_max_staleness_days][[1L]], 5)
+  expect_equal(effective[yahoo_finance_ticker == "CNH=X", label][[1L]], "local")
+  expect_equal(effective[yahoo_finance_ticker == "LOCAL", label][[1L]], "extra")
+
+  patch_path <- file.path(withr::local_tempdir(), "yahoo-policy-patch.json")
+  patch <- investdatar::get_yahoofinance_registry_migration_patch(runtime_path, seed_path, patch_path)
+  expect_equal(sort(patch$yahoo_finance_ticker), c("000300.SS", "CNH=X"))
+  expect_true(file.exists(patch_path))
+  expect_false(grepl("degraded_cache", paste(readLines(runtime_path), collapse = "\n"), fixed = TRUE))
+
+  weakened <- jsonlite::fromJSON(runtime_path, simplifyDataFrame = TRUE)
+  weakened$degraded_cache_enabled <- TRUE
+  weakened$degraded_cache_max_staleness_days <- NA_real_
+  weakened[weakened$yahoo_finance_ticker == "CNH=X", "degraded_cache_enabled"] <- FALSE
+  jsonlite::write_json(weakened, runtime_path, auto_unbox = TRUE, pretty = TRUE, na = "null")
+  expect_error(investdatar::get_yahoofinance_registry(runtime_path), "weakens")
+})
+
 test_that("Yahoo Finance sync validates its configured runtime registry before fetching", {
   calls <- 0L
   registry_path <- file.path(withr::local_tempdir(), "YahooFinance_ticker_registry.json")

@@ -536,10 +536,11 @@ get_yahoofinance_registry_file_path <- function(config_dir = NULL) {
 #' @return `data.table`.
 #' @export
 get_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path()) {
-  .read_json_registry(
+  registry <- .read_json_registry(
     registry_path,
     empty_cols = c("yahoo_finance_ticker", "definition", "main_asset_type", "second_asset_type", "geography")
   )
+  .normalize_yahoofinance_registry_policy(registry, get_yahoofinance_seed_registry_path())
 }
 
 #' Get Yahoo Finance Seed Registry Path
@@ -554,12 +555,108 @@ get_yahoofinance_seed_registry_path <- function() {
   path
 }
 
+.yahoofinance_policy_columns <- c(
+  "degraded_cache_enabled", "degraded_cache_max_staleness_days"
+)
+
+.yahoofinance_seed_policy <- function(seed_path) {
+  seed <- .read_json_registry(
+    seed_path,
+    empty_cols = c("yahoo_finance_ticker", .yahoofinance_policy_columns)
+  )
+  keep <- !is.na(seed[["degraded_cache_enabled"]]) |
+    !is.na(seed[["degraded_cache_max_staleness_days"]])
+  seed[keep, c("yahoo_finance_ticker", .yahoofinance_policy_columns), with = FALSE]
+}
+
+.yahoofinance_policy_weakens_seed <- function(seed_row, runtime_row) {
+  seed_enabled <- isTRUE(as.logical(seed_row$degraded_cache_enabled[[1L]]))
+  runtime_enabled <- if (is.na(runtime_row$degraded_cache_enabled[[1L]])) {
+    NA
+  } else isTRUE(as.logical(runtime_row$degraded_cache_enabled[[1L]]))
+  seed_max <- suppressWarnings(as.numeric(seed_row$degraded_cache_max_staleness_days[[1L]]))
+  runtime_max <- suppressWarnings(as.numeric(runtime_row$degraded_cache_max_staleness_days[[1L]]))
+  (seed_enabled && !is.na(runtime_enabled) && !runtime_enabled) ||
+    (is.finite(seed_max) && is.finite(runtime_max) && runtime_max > seed_max)
+}
+
+.normalize_yahoofinance_registry_policy <- function(registry, seed_path) {
+  registry <- data.table::copy(data.table::as.data.table(registry))
+  for (nm in .yahoofinance_policy_columns) {
+    if (!nm %in% names(registry)) registry[, (nm) := NA]
+  }
+  seed_policy <- .yahoofinance_seed_policy(seed_path)
+  if (nrow(registry) == 0L || nrow(seed_policy) == 0L) return(registry[])
+  for (i in seq_len(nrow(seed_policy))) {
+    ticker <- seed_policy$yahoo_finance_ticker[[i]]
+    rows <- which(registry$yahoo_finance_ticker == ticker)
+    if (length(rows) == 0L) next
+    for (j in rows) {
+      runtime_row <- registry[j]
+      if (.yahoofinance_policy_weakens_seed(seed_policy[i], runtime_row)) {
+        stop(
+          "Yahoo Finance runtime registry weakens the tracked degraded-cache policy for ", ticker,
+          ". Restore the seed policy or remove the local policy fields so they can be projected safely.",
+          call. = FALSE
+        )
+      }
+      for (nm in .yahoofinance_policy_columns) {
+        if (is.na(registry[[nm]][[j]])) registry[[nm]][[j]] <- seed_policy[[nm]][[i]]
+      }
+    }
+  }
+  registry[]
+}
+
+#' Get Yahoo Finance Registry Migration Patch
+#'
+#' Show the seed-owned policy fields that would be added to an older external
+#' Yahoo Finance registry. The runtime registry is never modified. If
+#' `output_path` is supplied, the patch is written as JSON at that path.
+#'
+#' @param registry_path Runtime registry JSON path.
+#' @param seed_path Package seed registry JSON path.
+#' @param output_path Optional JSON path for the explicit migration patch.
+#'
+#' @return A `data.table` with ticker and policy fields.
+#' @export
+get_yahoofinance_registry_migration_patch <- function(
+    registry_path = get_yahoofinance_registry_file_path(),
+    seed_path = get_yahoofinance_seed_registry_path(), output_path = NULL) {
+  runtime <- .read_json_registry(
+    registry_path,
+    empty_cols = c("yahoo_finance_ticker", .yahoofinance_policy_columns)
+  )
+  seed_policy <- .yahoofinance_seed_policy(seed_path)
+  rows <- lapply(seq_len(nrow(seed_policy)), function(i) {
+    ticker <- seed_policy$yahoo_finance_ticker[[i]]
+    runtime_rows <- runtime[which(runtime$yahoo_finance_ticker == ticker)]
+    if (nrow(runtime_rows) == 0L) return(NULL)
+    if (.yahoofinance_policy_weakens_seed(seed_policy[i], runtime_rows[1L])) {
+      stop("Runtime policy weakens the tracked seed policy for ", ticker, call. = FALSE)
+    }
+    missing <- vapply(.yahoofinance_policy_columns, function(nm) {
+      is.na(runtime_rows[[nm]][[1L]])
+    }, logical(1))
+    if (!any(missing)) return(NULL)
+    out <- seed_policy[i]
+    keep <- c("yahoo_finance_ticker", .yahoofinance_policy_columns[missing])
+    out <- out[, keep, with = FALSE]
+    out
+  })
+  patch <- data.table::rbindlist(rows, use.names = TRUE, fill = TRUE)
+  if (!is.null(output_path)) .write_json_registry(patch, output_path)
+  patch[]
+}
+
 #' Validate Yahoo Finance Runtime Registry
 #'
 #' Compare required ticker entries and fallback declarations in a runtime
 #' registry with the package-managed seed. Additional runtime-only ticker
 #' metadata is permitted. Seed entries with `required: true` must be present;
-#' every seed fallback declaration must be present unchanged.
+#' every seed fallback declaration must be present unchanged. Missing seed-owned
+#' degraded-cache policy fields are projected by `get_yahoofinance_registry()`;
+#' explicitly weaker supplied values are invalid.
 #'
 #' @param registry_path Runtime registry JSON path.
 #' @param seed_path Package seed registry JSON path.
@@ -569,7 +666,10 @@ get_yahoofinance_seed_registry_path <- function() {
 #' @export
 validate_yahoofinance_registry <- function(registry_path = get_yahoofinance_registry_file_path(),
                                             seed_path = get_yahoofinance_seed_registry_path()) {
-  registry_columns <- c("yahoo_finance_ticker", "fallback_source", "fallback_ticker")
+  registry_columns <- c(
+    "yahoo_finance_ticker", "fallback_source", "fallback_ticker",
+    .yahoofinance_policy_columns
+  )
   seed_all <- .read_json_registry(seed_path, empty_cols = c(registry_columns, "required"))
   seed_required <- seed_all[required %in% TRUE, .(yahoo_finance_ticker)]
   seed <- seed_all[!is.na(fallback_source) & nzchar(fallback_source)]
@@ -587,11 +687,28 @@ validate_yahoofinance_registry <- function(registry_path = get_yahoofinance_regi
     .(yahoo_finance_ticker, fallback_source, fallback_ticker,
       runtime_fallback_source = i.fallback_source, runtime_fallback_ticker = i.fallback_ticker)
   ]
+  seed_policy <- .yahoofinance_seed_policy(seed_path)
+  policy_mismatched <- data.table::rbindlist(lapply(seq_len(nrow(seed_policy)), function(i) {
+    ticker <- seed_policy$yahoo_finance_ticker[[i]]
+    rows <- runtime[which(runtime$yahoo_finance_ticker == ticker)]
+    if (nrow(rows) == 0L || !.yahoofinance_policy_weakens_seed(seed_policy[i], rows[1L])) {
+      return(NULL)
+    }
+    data.table::data.table(
+      yahoo_finance_ticker = ticker,
+      runtime_degraded_cache_enabled = rows$degraded_cache_enabled[[1L]],
+      runtime_degraded_cache_max_staleness_days = rows$degraded_cache_max_staleness_days[[1L]],
+      seed_degraded_cache_enabled = seed_policy$degraded_cache_enabled[[i]],
+      seed_degraded_cache_max_staleness_days = seed_policy$degraded_cache_max_staleness_days[[i]]
+    )
+  }), fill = TRUE)
   list(
-    valid = nrow(missing_required) == 0L && nrow(missing) == 0L && nrow(mismatched) == 0L,
+    valid = nrow(missing_required) == 0L && nrow(missing) == 0L &&
+      nrow(mismatched) == 0L && nrow(policy_mismatched) == 0L,
     missing = missing,
     mismatched = mismatched,
-    missing_required = missing_required
+    missing_required = missing_required,
+    policy_mismatched = policy_mismatched
   )
 }
 
