@@ -114,15 +114,55 @@
   )
 }
 
-.fetch_eastmoney_ohlc <- function(ticker, label, from, to) {
-  payload <- .http_get_json(
-    "https://push2his.eastmoney.com/api/qt/stock/kline/get",
-    query = list(
-      secid = ticker, klt = "101", fqt = "0",
-      beg = format(as.Date(from), "%Y%m%d"), end = format(as.Date(to), "%Y%m%d"),
-      fields1 = "f1,f2,f3,f4,f5,f6",
-      fields2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
-    )
+.eastmoney_kline_headers <- function() {
+  c(
+    "Accept" = "application/json, text/plain, */*",
+    "Accept-Language" = "en-US,en;q=0.9",
+    "Referer" = "https://quote.eastmoney.com/",
+    "User-Agent" = "Mozilla/5.0 (compatible; investdatar Eastmoney fallback)"
+  )
+}
+
+.new_eastmoney_transient_error <- function(parent, ticker, retry_after_seconds = 60L) {
+  attempts <- parent$attempts %||% NA_integer_
+  structure(
+    list(
+      message = paste0(
+        "Eastmoney daily-kline transport failed for ", ticker,
+        if (!is.na(attempts)) paste0(" after ", attempts, " attempt(s)") else "",
+        ". The endpoint closed the connection before a response; retry after ",
+        retry_after_seconds, " seconds."
+      ),
+      call = NULL,
+      ticker = ticker,
+      attempts = attempts,
+      retry_after_seconds = as.integer(retry_after_seconds),
+      parent = parent
+    ),
+    class = c("investdatar_eastmoney_transient_error", "error", "condition")
+  )
+}
+
+.fetch_eastmoney_ohlc <- function(ticker, label, from, to, max_attempts = 5L) {
+  payload <- tryCatch(
+    .http_get_json(
+      "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+      query = list(
+        secid = ticker, klt = "101", fqt = "0",
+        beg = format(as.Date(from), "%Y%m%d"), end = format(as.Date(to), "%Y%m%d"),
+        fields1 = "f1,f2,f3,f4,f5,f6",
+        fields2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
+      ),
+      headers = .eastmoney_kline_headers(),
+      max_attempts = max_attempts
+    ),
+    error = function(e) {
+      transient_status <- !is.null(e$status_code) && e$status_code %in% c(408L, 425L, 429L, 500L, 502L, 503L, 504L)
+      if (inherits(e, "investdatar_http_transport_error") || transient_status) {
+        stop(.new_eastmoney_transient_error(e, ticker))
+      }
+      stop(e)
+    }
   )
   klines <- payload$data$klines
   if (is.null(klines) || length(klines) == 0L) {

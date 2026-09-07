@@ -333,6 +333,13 @@ succeeds. The external fallback is limited to declared rows; it never replaces
 a finite local Yahoo bar and all other symbols continue to use Yahoo through
 `quantmod`.
 
+Eastmoney's historical-kline host can intermittently close a connection before
+returning HTTP headers. Its fallback uses five TLS-verified, bounded transport
+attempts with source-compatible headers. If those attempts are exhausted,
+Investdatar returns a typed transient error recommending a retry after 60
+seconds; the ticker remains a failed batch entry rather than being reported as
+successfully synchronized.
+
 Some package-maintained Yahoo entries are marked `required: true` in the seed.
 An existing runtime registry must retain those ticker rows, in addition to the
 declared fallback mappings; validation fails before sync if they are missing.

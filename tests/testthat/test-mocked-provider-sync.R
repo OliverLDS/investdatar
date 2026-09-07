@@ -787,7 +787,15 @@ test_that("Eastmoney fallback is explicit and returns standardized CSI 300 bars"
     "2026-07-27,4656.03,4702.43,4702.52,4615.53,204786941"
   )))
   dt <- testthat::with_mocked_bindings(
-    .http_get_json = function(...) payload,
+    .http_get_json = function(url, query = NULL, headers = character(), max_attempts, ...) {
+      expect_equal(url, "https://push2his.eastmoney.com/api/qt/stock/kline/get")
+      expect_equal(query$secid, "1.000300")
+      expect_equal(query$klt, "101")
+      expect_equal(headers[["Referer"]], "https://quote.eastmoney.com/")
+      expect_match(headers[["User-Agent"]], "investdatar Eastmoney")
+      expect_equal(max_attempts, 5L)
+      payload
+    },
     investdatar:::.fetch_eastmoney_ohlc("1.000300", "000300.SS", "2026-07-24", "2026-07-27"),
     .package = "investdatar"
   )
@@ -795,6 +803,49 @@ test_that("Eastmoney fallback is explicit and returns standardized CSI 300 bars"
   expect_equal(dt$source, c("eastmoney", "eastmoney"))
   expect_equal(dt$date, as.Date(c("2026-07-24", "2026-07-27")))
   expect_equal(dt$close, c(4649.19, 4702.43))
+})
+
+test_that("Eastmoney transport exhaustion returns retry guidance", {
+  transport_error <- structure(
+    list(message = "Empty reply from server", call = NULL, attempts = 5L),
+    class = c("investdatar_http_transport_error", "error", "condition")
+  )
+  error <- tryCatch(
+    testthat::with_mocked_bindings(
+      .http_get_json = function(...) stop(transport_error),
+      investdatar:::.fetch_eastmoney_ohlc("1.000300", "000300.SS", "2026-07-24", "2026-07-27"),
+      .package = "investdatar"
+    ),
+    error = function(e) e
+  )
+
+  expect_s3_class(error, "investdatar_eastmoney_transient_error")
+  expect_equal(error$retry_after_seconds, 60L)
+  expect_match(conditionMessage(error), "retry after 60 seconds")
+})
+
+test_that("Eastmoney transport exhaustion preserves Yahoo fetch failure", {
+  transient_error <- structure(
+    list(message = "retry after 60 seconds", call = NULL, retry_after_seconds = 60L),
+    class = c("investdatar_eastmoney_transient_error", "error", "condition")
+  )
+  error <- tryCatch(
+    testthat::with_mocked_bindings(
+      .quantmod_get_symbols = function(...) stop("Yahoo primary failed"),
+      .fetch_yahoo_chart_range_ohlc = function(...) stop("Yahoo chart fallback failed"),
+      .fetch_eastmoney_ohlc = function(...) stop(transient_error),
+      investdatar::fetch_quantmod_OHLC(
+        "000300.SS", from = "2026-07-24", to = "2026-07-27",
+        retry_delay_seconds = 0, fallback_source = "eastmoney", fallback_ticker = "1.000300"
+      ),
+      .package = "investdatar"
+    ),
+    error = function(e) e
+  )
+
+  expect_s3_class(error, "investdatar_quantmod_error")
+  expect_s3_class(error$parent, "investdatar_eastmoney_transient_error")
+  expect_match(conditionMessage(error), "retry after 60 seconds")
 })
 
 test_that("fetch_quantmod_OHLC reports when an explicit fallback was used", {
