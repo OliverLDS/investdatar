@@ -352,7 +352,12 @@ fetch_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "yahoo",
     }
     last_error <- fallback
   }
-  stop(.new_quantmod_error(ticker, src, max_attempts, last_error))
+  fetch_error <- .new_quantmod_error(ticker, src, max_attempts, last_error)
+  fetch_error$primary_error_class <- primary_error_class
+  fetch_error$fallback_error_class <- if (!is.null(fallback_source)) {
+    class(last_error)[[1L]]
+  } else NA_character_
+  stop(fetch_error)
 }
 
 .quantmod_local_filename <- function(label, src = "yahoo", interval = "1d") {
@@ -381,6 +386,116 @@ fetch_quantmod_OHLC <- function(ticker, label = ticker, from, to, src = "yahoo",
   valid <- .quantmod_complete_ohlc_rows(dt)
   if (length(valid) != nrow(dt) || !any(valid)) return(as.Date(NA))
   max(dt$date[valid], na.rm = TRUE)
+}
+
+.yahoo_degraded_cache_policy <- function(registry_row) {
+  enabled <- "degraded_cache_enabled" %in% names(registry_row) &&
+    isTRUE(as.logical(registry_row$degraded_cache_enabled[[1L]]))
+  max_days <- if ("degraded_cache_max_staleness_days" %in% names(registry_row)) {
+    suppressWarnings(as.numeric(registry_row$degraded_cache_max_staleness_days[[1L]]))
+  } else {
+    NA_real_
+  }
+  fallback <- if ("fallback_source" %in% names(registry_row)) {
+    tolower(as.character(registry_row$fallback_source[[1L]]))
+  } else {
+    NA_character_
+  }
+  list(
+    enabled = isTRUE(enabled) && identical(fallback, "eastmoney") &&
+      is.finite(max_days) && max_days >= 0,
+    max_staleness_days = max_days
+  )
+}
+
+.yahoo_degraded_cache_calendar <- function(ticker) {
+  catalog <- tryCatch(get_instrument_catalog(), error = function(e) NULL)
+  if (!is.null(catalog) && nrow(catalog) > 0L &&
+      "provider_identifiers" %in% names(catalog)) {
+    matches <- vapply(catalog$provider_identifiers, function(x) {
+      is.list(x) && identical(as.character(x$yahoo %||% NA_character_), ticker)
+    }, logical(1))
+    if (any(matches) && "market_calendar" %in% names(catalog)) {
+      return(as.character(catalog$market_calendar[[which(matches)[[1L]]]]))
+    }
+  }
+  c("CNH=X" = "FX_24_5", "000300.SS" = "XSHG")[[ticker]] %||% NA_character_
+}
+
+.yahoo_degraded_cache_cutoff <- function(calendar, as_of = as.Date(Sys.time(), tz = "UTC")) {
+  tz <- switch(calendar, FX_24_5 = "UTC", XSHG = "Asia/Shanghai", "UTC")
+  as.Date(as.POSIXct(as_of, tz = "UTC"), tz = tz)
+}
+
+.yahoo_degraded_cache_integrity_status <- function(ticker, local_path) {
+  audit_dir <- file.path(local_path, "_audits", "yahoo_recent_overlap")
+  paths <- list.files(audit_dir, pattern = "\\.json$", full.names = TRUE)
+  if (length(paths) == 0L) return("not_observed")
+  latest <- paths[which.max(file.info(paths)$mtime)]
+  audit <- tryCatch(jsonlite::read_json(latest, simplifyVector = FALSE), error = function(e) NULL)
+  if (is.null(audit) || !is.list(audit) || is.null(audit$instruments)) return("not_observed")
+  instrument <- Filter(function(x) identical(as.character(x$ticker %||% ""), ticker), audit$instruments)
+  if (length(instrument) == 0L) return("not_observed")
+  if (identical(instrument[[1L]]$status %||% "", "integrity_issue")) {
+    return("integrity_failed")
+  }
+  "clean_or_non_integrity"
+}
+
+.yahoo_degraded_cache_assessment <- function(ticker, registry_row, local_path,
+                                             as_of = as.Date(Sys.time(), tz = "UTC")) {
+  policy <- .yahoo_degraded_cache_policy(registry_row)
+  result <- list(
+    eligible = FALSE, reason = "degraded_cache_not_enabled",
+    last_completed_cached_date = as.Date(NA), cache_source = NA_character_,
+    staleness_days = NA_real_, max_staleness_days = policy$max_staleness_days,
+    integrity_status = "not_checked"
+  )
+  if (!policy$enabled) return(result)
+
+  cached <- tryCatch(
+    get_completed_local_quantmod_OHLC(ticker, src = "yahoo", local_path = local_path, as_of = as_of),
+    error = function(e) NULL
+  )
+  if (is.null(cached) || nrow(cached) == 0L) {
+    result$reason <- "cache_missing_or_empty"
+    return(result)
+  }
+  valid <- .quantmod_complete_ohlc_rows(cached)
+  if (length(valid) != nrow(cached) || !all(valid)) {
+    result$reason <- "cache_contains_invalid_ohlc"
+    result$integrity_status <- "integrity_failed"
+    return(result)
+  }
+  integrity_status <- .yahoo_degraded_cache_integrity_status(ticker, local_path)
+  result$integrity_status <- integrity_status
+  if (identical(integrity_status, "integrity_failed")) {
+    result$reason <- "cache_has_unresolved_integrity_finding"
+    return(result)
+  }
+  calendar <- .yahoo_degraded_cache_calendar(ticker)
+  cutoff <- .yahoo_degraded_cache_cutoff(calendar, as_of)
+  completed <- cached[date < cutoff]
+  if (nrow(completed) == 0L) {
+    result$reason <- "cache_has_no_completed_rows"
+    return(result)
+  }
+  last_date <- max(as.Date(completed$date), na.rm = TRUE)
+  staleness <- as.numeric(cutoff - last_date)
+  result$last_completed_cached_date <- last_date
+  result$staleness_days <- staleness
+  result$cache_source <- if ("source" %in% names(completed)) {
+    sources <- unique(as.character(completed$source))
+    if (length(sources) == 1L) sources[[1L]] else "mixed"
+  } else NA_character_
+  if (!is.finite(staleness) || staleness < 0 || staleness > policy$max_staleness_days) {
+    result$reason <- "cache_exceeds_max_staleness"
+    return(result)
+  }
+  result$eligible <- TRUE
+  result$reason <- "eligible"
+  result$integrity_status <- "local_ohlc_valid"
+  result
 }
 
 #' Get Yahoo Finance Registry File Path
@@ -724,6 +839,17 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
           to = to,
           latest_local_date = latest_local_date,
           status = "success",
+          health = "healthy",
+          degraded = FALSE,
+          degraded_symbols = NA_character_,
+          last_completed_cached_date = .quantmod_latest_local_date(
+            ticker, src = src, interval = "1d", local_path = local_path
+          ),
+          cache_source = NA_character_,
+          cache_staleness_days = NA_real_,
+          cache_max_staleness_days = NA_real_,
+          fallback_error_class = NA_character_,
+          retry_guidance = NA_character_,
           updated = isTRUE(res$updated),
           n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
           n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
@@ -736,21 +862,38 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
         )
       },
       error = function(e) {
+        assessment <- .yahoo_degraded_cache_assessment(
+          ticker = ticker, registry_row = registry[i], local_path = local_path
+        )
+        degraded <- isTRUE(assessment$eligible)
+        primary_class <- e$primary_error_class %||% class(e)[[1L]]
+        fallback_class <- e$fallback_error_class %||% NA_character_
         data.table::data.table(
           yahoo_finance_ticker = ticker,
           from = ticker_from,
           to = to,
           latest_local_date = latest_local_date,
-          status = "error",
+          status = if (degraded) "degraded_cache" else "error",
+          health = if (degraded) "degraded" else "unhealthy",
+          degraded = degraded,
+          degraded_symbols = if (degraded) ticker else NA_character_,
+          last_completed_cached_date = assessment$last_completed_cached_date,
+          cache_source = assessment$cache_source,
+          cache_staleness_days = assessment$staleness_days,
+          cache_max_staleness_days = assessment$max_staleness_days,
+          fallback_error_class = fallback_class,
+          retry_guidance = if (degraded) {
+            "Primary and fallback failed; retry after the provider retry interval. No cache rows were changed."
+          } else NA_character_,
           updated = FALSE,
           n_rows = NA_integer_,
           n_new_rows = NA_integer_,
           fetch_method = NA_character_,
           fetch_attempts = if (!is.null(e$attempts)) e$attempts else NA_integer_,
-          primary_error = NA_character_,
-          primary_error_class = NA_character_,
+          primary_error = conditionMessage(e),
+          primary_error_class = primary_class,
           invalid_ohlc_rows = NA_integer_,
-          error = conditionMessage(e),
+          error = if (degraded) NA_character_ else conditionMessage(e),
           error_class = class(e)[[1L]]
         )
       }
@@ -764,6 +907,14 @@ sync_all_yahoofinance_registry_data <- function(from = NULL,
     run_started_at = run_started_at,
     run_finished_at = run_finished_at
   )
+  degraded_rows <- which(!is.na(summary_dt$status) & summary_dt$status == "degraded_cache")
+  degraded_symbols <- unique(summary_dt[degraded_rows, yahoo_finance_ticker])
+  if (nrow(summary_dt) > 0L) {
+    degraded_symbol_text <- if (length(degraded_symbols)) {
+      paste(degraded_symbols, collapse = ",")
+    } else NA_character_
+    summary_dt[, degraded_symbols := degraded_symbol_text]
+  }
   .write_sync_run_log(
     source_id = "yahoofinance",
     summary = summary_dt,

@@ -313,6 +313,15 @@ seed. Alternatively, first back up the existing runtime JSON file, remove it,
 and run `bootstrap_yahoofinance_registry()` to recreate it. The default Yahoo
 registry batch sync performs this validation before making provider requests.
 
+For the two configured Eastmoney-backed instruments, `CNH=X` and `000300.SS`,
+the registry may explicitly opt into a bounded `degraded_cache` outcome with
+`degraded_cache_enabled: true` and `degraded_cache_max_staleness_days`. This
+outcome is used only when both fresh providers fail and the local completed OHLC
+cache is finite, within its calendar cutoff and staleness limit, and has no
+unresolved integrity finding. It never writes or repairs cache rows. All other
+symbols, and any missing, invalid, stale, or integrity-failed cache, remain hard
+failures.
+
 For a known Yahoo-only failure, a registry row can opt into an explicit,
 provenance-preserving fallback rather than silently substituting data:
 

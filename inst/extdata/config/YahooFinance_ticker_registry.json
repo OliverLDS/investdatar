@@ -5,7 +5,9 @@
   {
     "yahoo_finance_ticker": "CNH=X",
     "fallback_source": "eastmoney",
-    "fallback_ticker": "133.USDCNH"
+    "fallback_ticker": "133.USDCNH",
+    "degraded_cache_enabled": true,
+    "degraded_cache_max_staleness_days": 5
   },
   {"yahoo_finance_ticker": "GBPUSD=X"},
   {"yahoo_finance_ticker": "^IRX"},
@@ -41,7 +43,9 @@
   {
     "yahoo_finance_ticker": "000300.SS",
     "fallback_source": "eastmoney",
-    "fallback_ticker": "1.000300"
+    "fallback_ticker": "1.000300",
+    "degraded_cache_enabled": true,
+    "degraded_cache_max_staleness_days": 5
   },
   {"yahoo_finance_ticker": "^HSI"},
   {"yahoo_finance_ticker": "SOXX", "required": true},
