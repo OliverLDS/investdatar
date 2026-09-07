@@ -157,3 +157,225 @@ audit_csi300_cache_integrity <- function(local_path = NULL,
     artifact_paths = paths
   )
 }
+
+.csi300_cache_repair_schema_version <- "1.0.0"
+
+.csi300_cache_repair_paths <- function(output_dir, generated_at = Sys.time()) {
+  stamp <- format(as.POSIXct(generated_at, tz = "UTC"), "%Y%m%dT%H%M%SZ", tz = "UTC")
+  stem <- sprintf("csi300_cache_repair_v%s_%s",
+                  gsub("[^A-Za-z0-9]+", "_", .csi300_cache_repair_schema_version), stamp)
+  list(
+    log = file.path(output_dir, paste0(stem, ".json")),
+    backup = file.path(output_dir, "backups", paste0(stem, "__000300.SS__yahoo__1d.rds"))
+  )
+}
+
+.csi300_close_cents <- function(x) {
+  as.integer(round(as.numeric(x) * 100))
+}
+
+.csi300_read_audit_artifact <- function(path) {
+  if (!file.exists(path)) {
+    stop("CSI 300 audit artifact does not exist: ", path, call. = FALSE)
+  }
+  report <- jsonlite::fromJSON(path, simplifyDataFrame = TRUE)
+  if (!identical(report$schema_version, .csi300_cache_audit_schema_version) ||
+      !identical(report$symbol, "000300.SS") ||
+      is.null(report$comparison_source$provider) ||
+      !identical(report$comparison_source$provider, "eastmoney")) {
+    stop("Audit artifact is not a supported CSI 300 Eastmoney audit report.", call. = FALSE)
+  }
+  discrepancies <- .as_data_table(report$discrepancies)
+  required <- c(
+    "date", "cached_source", "cached_open", "cached_high", "cached_low", "cached_close",
+    "cached_volume", "cached_adj_close", "eastmoney_open", "eastmoney_high", "eastmoney_low",
+    "eastmoney_close", "eastmoney_volume", "eastmoney_adj_close"
+  )
+  if (is.null(discrepancies) || !all(required %in% names(discrepancies))) {
+    stop("Audit artifact has no usable CSI 300 discrepancy records.", call. = FALSE)
+  }
+  discrepancies[, date := as.Date(date)]
+  if (anyNA(discrepancies$date) || anyDuplicated(discrepancies$date)) {
+    stop("Audit artifact discrepancy dates must be unique and valid.", call. = FALSE)
+  }
+  list(report = report, discrepancies = discrepancies)
+}
+
+.csi300_validate_approved_dates <- function(approved_dates, discrepancies) {
+  dates <- as.Date(approved_dates)
+  if (length(dates) == 0L || anyNA(dates) || anyDuplicated(dates)) {
+    stop("approved_dates must contain one or more unique valid dates.", call. = FALSE)
+  }
+  unauthorized <- setdiff(dates, discrepancies$date)
+  if (length(unauthorized) > 0L) {
+    stop(
+      "approved_dates contains date(s) absent from the audit discrepancy set: ",
+      paste(as.character(unauthorized), collapse = ", "),
+      call. = FALSE
+    )
+  }
+  sort(dates)
+}
+
+.csi300_validate_cached_audit_rows <- function(current, audited, approved_dates) {
+  current <- data.table::copy(current[current[["date"]] %in% approved_dates])
+  if (nrow(current) != length(approved_dates) || anyDuplicated(current$date)) {
+    stop("Current CSI 300 cache no longer has exactly one row for every approved date.", call. = FALSE)
+  }
+  merged <- merge(current, audited, by = "date", all.x = TRUE, sort = TRUE)
+  if (any(is.na(merged$cached_close)) ||
+      any(.csi300_close_cents(merged$close) != .csi300_close_cents(merged$cached_close))) {
+    stop("Current CSI 300 cache no longer matches the approved audit rows; run a new audit.", call. = FALSE)
+  }
+  merged
+}
+
+.csi300_build_repair_rows <- function(current_audited, fresh, close_tolerance) {
+  fresh <- data.table::copy(fresh)
+  fresh[, "date" := as.Date(fresh[["date"]])]
+  merged <- merge(current_audited, fresh, by = "date", all.x = TRUE, suffixes = c("_current", "_fresh"), sort = TRUE)
+  required_fresh <- c("open_fresh", "high_fresh", "low_fresh", "close_fresh")
+  has_complete_fresh <- all(required_fresh %in% names(merged)) && all(vapply(
+    required_fresh, function(nm) all(is.finite(merged[[nm]])), logical(1)
+  ))
+  if (!has_complete_fresh) {
+    stop("Fresh Eastmoney candidate is missing complete OHLC for one or more approved dates.", call. = FALSE)
+  }
+  tolerance_cents <- close_tolerance * 100 + sqrt(.Machine$double.eps)
+  if (any(abs(.csi300_close_cents(merged$close_fresh) - .csi300_close_cents(merged$eastmoney_close)) > tolerance_cents)) {
+    stop("Fresh Eastmoney candidate no longer matches the audit candidate within its close tolerance.", call. = FALSE)
+  }
+  merged[, c(
+    "old_source", "old_symbol", "old_interval", "old_datetime", "old_open", "old_high", "old_low",
+    "old_close", "old_volume", "old_adj_close", "new_source", "new_symbol", "new_interval", "new_datetime",
+    "new_open", "new_high", "new_low", "new_close", "new_volume", "new_adj_close", "audit_eastmoney_close"
+  ) := list(
+    merged[["source_current"]], merged[["symbol_current"]], merged[["interval_current"]],
+    merged[["datetime_current"]], merged[["open_current"]], merged[["high_current"]], merged[["low_current"]],
+    merged[["close_current"]], merged[["volume_current"]], merged[["adj_close_current"]], "eastmoney",
+    merged[["symbol_fresh"]], merged[["interval_fresh"]], merged[["datetime_fresh"]],
+    merged[["open_fresh"]], merged[["high_fresh"]], merged[["low_fresh"]], merged[["close_fresh"]],
+    merged[["volume_fresh"]], merged[["adj_close_fresh"]], merged[["eastmoney_close"]]
+  )]
+  merged[, .(
+    date, old_source, old_symbol, old_interval, old_datetime, old_open, old_high, old_low,
+    old_close, old_volume, old_adj_close, new_source, new_symbol, new_interval, new_datetime,
+    new_open, new_high, new_low, new_close, new_volume, new_adj_close, audit_eastmoney_close
+  )]
+}
+
+.csi300_replace_approved_rows <- function(current, repair_rows) {
+  updated <- data.table::copy(current)
+  for (i in seq_len(nrow(repair_rows))) {
+    row <- repair_rows[i]
+    updated[updated[["date"]] == row$date,
+            c("source", "symbol", "interval", "datetime", "open", "high", "low", "close", "volume", "adj_close") := list(
+              row$new_source, row$new_symbol, row$new_interval, row$new_datetime,
+              row$new_open, row$new_high, row$new_low, row$new_close, row$new_volume, row$new_adj_close
+            )]
+  }
+  updated
+}
+
+#' Repair Approved CSI 300 Cache Rows From Eastmoney
+#'
+#' Apply a manually approved repair derived from a versioned
+#' [audit_csi300_cache_integrity()] artifact. The function authorizes only
+#' dates present in that artifact's discrepancy set, verifies that the current
+#' cache has not changed since the audit, and verifies the fresh Eastmoney
+#' candidate against the audited candidate using the audit's close tolerance.
+#'
+#' The default is a dry run. It always writes a versioned repair log; dry runs
+#' do not mutate the cache or create a backup. A non-dry-run first copies the
+#' cache to the repair directory, then replaces only the explicitly approved
+#' rows. If writing fails, it restores the cache from that backup.
+#'
+#' @param audit_artifact_path JSON report produced by
+#'   [audit_csi300_cache_integrity()].
+#' @param approved_dates Explicit unique dates to repair. Every date must be in
+#'   the audit artifact's discrepancy set.
+#' @param local_path Yahoo Finance cache directory. Defaults to the configured
+#'   Yahoo Finance data path.
+#' @param output_dir Directory for repair logs and backups. Defaults to
+#'   `<local_path>/_repairs/csi300_cache_integrity`.
+#' @param dry_run Whether to write only a proposed repair log. Defaults to
+#'   `TRUE`.
+#'
+#' @return A list with the proposed or applied repair rows, log path, and (when
+#'   applied) backup path.
+#' @export
+repair_csi300_cache_integrity <- function(audit_artifact_path,
+                                          approved_dates,
+                                          local_path = NULL,
+                                          output_dir = NULL,
+                                          dry_run = TRUE) {
+  audit <- .csi300_read_audit_artifact(audit_artifact_path)
+  approved_dates <- .csi300_validate_approved_dates(approved_dates, audit$discrepancies)
+  close_tolerance <- as.numeric(audit$report$close_tolerance)
+  if (length(close_tolerance) != 1L || is.na(close_tolerance) || close_tolerance < 0) {
+    stop("Audit artifact has an invalid close tolerance.", call. = FALSE)
+  }
+  if (is.null(local_path)) local_path <- .quantmod_default_local_path(src = "yahoo", create = FALSE)
+  if (is.null(output_dir)) output_dir <- file.path(local_path, "_repairs", "csi300_cache_integrity")
+  local_file_path <- file.path(local_path, .quantmod_local_filename("000300.SS", "yahoo", "1d"))
+  current <- .as_data_table(.safe_read_rds(local_file_path, default = NULL))
+  if (is.null(current) || nrow(current) == 0L) {
+    stop("No local CSI 300 cache exists for 000300.SS at: ", local_path, call. = FALSE)
+  }
+  current <- data.table::copy(current)
+  current[, "date" := as.Date(current[["date"]])]
+  audited <- audit$discrepancies[audit$discrepancies[["date"]] %in% approved_dates]
+  current_audited <- .csi300_validate_cached_audit_rows(current, audited, approved_dates)
+  fresh <- .fetch_eastmoney_ohlc(
+    ticker = "1.000300", label = "000300.SS",
+    from = min(approved_dates), to = max(approved_dates)
+  )
+  repair_rows <- .csi300_build_repair_rows(current_audited, fresh, close_tolerance)
+
+  generated_at <- as.POSIXct(Sys.time(), tz = "UTC")
+  paths <- .csi300_cache_repair_paths(output_dir, generated_at)
+  dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+  status <- if (isTRUE(dry_run)) "dry_run" else "applied"
+  backup_path <- NULL
+  if (!isTRUE(dry_run)) {
+    dir.create(dirname(paths$backup), recursive = TRUE, showWarnings = FALSE)
+    if (!file.copy(local_file_path, paths$backup, overwrite = FALSE)) {
+      stop("Could not back up CSI 300 cache before repair: ", paths$backup, call. = FALSE)
+    }
+    backup_path <- paths$backup
+    updated <- .csi300_replace_approved_rows(current, repair_rows)
+    tryCatch(
+      .safe_save_rds(updated, local_file_path),
+      error = function(e) {
+        restored <- file.copy(paths$backup, local_file_path, overwrite = TRUE)
+        if (!restored) {
+          stop("CSI 300 repair write failed and backup restoration also failed: ", conditionMessage(e), call. = FALSE)
+        }
+        stop("CSI 300 repair write failed; cache was restored from backup: ", conditionMessage(e), call. = FALSE)
+      }
+    )
+  }
+  repair_log <- list(
+    schema_version = .csi300_cache_repair_schema_version,
+    repair_id = tools::file_path_sans_ext(basename(paths$log)),
+    status = status,
+    dry_run = isTRUE(dry_run),
+    generated_at_utc = format(generated_at, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    package_version = as.character(utils::packageVersion("investdatar")),
+    audit_id = audit$report$audit_id,
+    audit_artifact_path = normalizePath(audit_artifact_path, winslash = "/", mustWork = FALSE),
+    cache_path = normalizePath(local_file_path, winslash = "/", mustWork = FALSE),
+    backup_path = backup_path,
+    source_provenance = list(provider = "eastmoney", symbol = "1.000300"),
+    close_tolerance = close_tolerance,
+    repairs = as.data.frame(repair_rows)
+  )
+  jsonlite::write_json(repair_log, paths$log, pretty = TRUE, auto_unbox = TRUE, null = "null", na = "null")
+  list(
+    dry_run = isTRUE(dry_run),
+    updated = !isTRUE(dry_run),
+    repair_rows = repair_rows,
+    repair_log_path = paths$log,
+    backup_path = backup_path
+  )
+}
