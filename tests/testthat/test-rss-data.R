@@ -35,6 +35,43 @@ test_that("GDPNow RSS parser standardizes feed items and parsed fields", {
   expect_true(all(c("guid", "published_at", "summary", "narrative_type") %in% names(dt)))
 })
 
+test_that("RSS parser preserves numeric RFC-822 timezone offsets", {
+  feed_text <- paste(
+    "<rss><channel><item>",
+    "<title>SEC item</title>",
+    "<link>https://example.test/sec-item</link>",
+    "<guid>sec-guid</guid>",
+    "<pubDate>Thu, 03 Sep 2026 16:30:00 -0400</pubDate>",
+    "<description>Release</description>",
+    "</item></channel></rss>"
+  )
+  parsed <- investdatar:::.parse_rss_items(feed_text, "sec_press_releases")
+  expect_equal(parsed$published_at, as.POSIXct("2026-09-03 20:30:00", tz = "UTC"))
+  expect_equal(parsed$published_date, as.Date("2026-09-03"))
+})
+
+test_that("RSS parser removes a UTF-8 BOM before XML parsing", {
+  feed_text <- paste(
+    "<rss><channel><item><title>Fed item</title>",
+    "<link><![CDATA[https://example.test/fed-item]]></link>",
+    "<guid><![CDATA[fed-guid]]></guid>",
+    "<pubDate><![CDATA[Fri, 4 Sep 2026 15:00:00 GMT]]></pubDate>",
+    "<description><![CDATA[Release]]></description></item></channel></rss>"
+  )
+  feed_text <- rawToChar(c(as.raw(c(0xef, 0xbb, 0xbf)), charToRaw(feed_text)))
+  parsed <- investdatar:::.parse_rss_items(feed_text, "fed_press_all")
+  expect_equal(parsed$guid, "fed-guid")
+  expect_equal(parsed$link, "https://example.test/fed-item")
+  expect_equal(parsed$published_at, as.POSIXct("2026-09-04 15:00:00", tz = "UTC"))
+})
+
+test_that("RSS HTML fallback preserves CDATA fields", {
+  feed_text <- "<rss><channel><item><guid><![CDATA[id]]></guid><pubDate><![CDATA[Fri, 4 Sep 2026 15:00:00 GMT]]></pubDate><title>Title</title></item></channel></rss>"
+  parsed <- investdatar:::.parse_rss_items(feed_text, "fed_press_all")
+  expect_equal(parsed$guid, "id")
+  expect_equal(parsed$published_date, as.Date("2026-09-04"))
+})
+
 test_that("sync_local_rss_data writes local feed data and describe_rss_data reads it", {
   local_dir <- withr::local_tempdir()
 
@@ -75,6 +112,79 @@ test_that("sync_local_rss_data writes local feed data and describe_rss_data read
   expect_equal(nrow(local_dt), 2L)
   expect_match(txt, "RSS narrative items")
   expect_match(txt, "estimate_value")
+})
+
+test_that("RSS incremental results identify inserted items, not changed or fetched rows", {
+  local_dir <- withr::local_tempdir()
+  calls <- 0L
+  feed_rows <- function() {
+    calls <<- calls + 1L
+    dt <- data.table::data.table(
+      feed_id = "sec_press_releases", source = "rss",
+      guid = c("a", "b"),
+      published_at = as.POSIXct(c("2026-09-01 10:00:00", "2026-09-02 10:00:00"), tz = "UTC"),
+      published_date = as.Date(c("2026-09-01", "2026-09-02")),
+      title = c("A", "B"), summary = c("old", "old"),
+      link = c("https://example.test/a", "https://example.test/b"),
+      author = NA_character_, category = NA_character_
+    )
+    if (calls >= 3L) {
+      dt <- rbind(dt, data.table::data.table(
+        feed_id = "sec_press_releases", source = "rss", guid = "c",
+        published_at = as.POSIXct("2026-09-03 10:00:00", tz = "UTC"),
+        published_date = as.Date("2026-09-03"), title = "C", summary = "new",
+        link = "https://example.test/c", author = NA_character_, category = NA_character_
+      ))
+      dt[guid == "b", summary := "revised"]
+    }
+    dt
+  }
+  old_fetch <- get("get_source_data_rss", envir = asNamespace("investdatar"))
+  assignInNamespace("get_source_data_rss", function(...) feed_rows(), ns = "investdatar")
+  on.exit(assignInNamespace("get_source_data_rss", old_fetch, ns = "investdatar"), add = TRUE)
+
+  first <- investdatar::sync_local_rss_data("sec_press_releases", "https://example.test/feed", local_path = local_dir)
+  second <- investdatar::sync_local_rss_data("sec_press_releases", "https://example.test/feed", local_path = local_dir)
+  third <- investdatar::sync_local_rss_data("sec_press_releases", "https://example.test/feed", local_path = local_dir)
+
+  expect_equal(first$n_new_rows, 2L)
+  expect_equal(second$n_new_rows, 0L)
+  expect_equal(third$n_new_rows, 1L)
+  expect_equal(third$inserted_ids, "c")
+  expect_equal(third$inserted_published_at_min, as.POSIXct("2026-09-03 10:00:00", tz = "UTC"))
+  expect_equal(third$latest_fetched_published_at, as.POSIXct("2026-09-03 10:00:00", tz = "UTC"))
+  expect_equal(third$latest_local_published_at, as.POSIXct("2026-09-03 10:00:00", tz = "UTC"))
+  local <- investdatar::get_local_rss_data("sec_press_releases", local_path = local_dir)
+  expect_equal(local[guid %in% third$inserted_ids, guid], "c")
+  expect_equal(local[guid == "b", summary], "revised")
+})
+
+test_that("RSS sync reconciles legacy synthetic GUIDs by stable links", {
+  local_dir <- withr::local_tempdir()
+  old <- data.table::data.table(
+    feed_id = "fed_press_all", source = "rss",
+    guid = "fed_press_all::NA::A", published_at = as.POSIXct(NA),
+    published_date = as.Date(NA), title = "A", summary = "old",
+    link = "https://example.test/a", author = NA_character_, category = NA_character_
+  )
+  saveRDS(old, file.path(local_dir, "fed_press_all.rds"))
+  new <- data.table::copy(old)
+  new[, `:=`(
+    guid = "https://example.test/a",
+    published_at = as.POSIXct("2026-09-04 15:00:00", tz = "UTC"),
+    published_date = as.Date("2026-09-04"), summary = "current"
+  )]
+  old_fetch <- get("get_source_data_rss", envir = asNamespace("investdatar"))
+  assignInNamespace("get_source_data_rss", function(...) new, ns = "investdatar")
+  on.exit(assignInNamespace("get_source_data_rss", old_fetch, ns = "investdatar"), add = TRUE)
+
+  result <- investdatar::sync_local_rss_data("fed_press_all", "https://example.test/feed", local_path = local_dir)
+  expect_equal(result$n_new_rows, 0L)
+  expect_equal(result$inserted_ids, character())
+  expect_equal(as.numeric(result$latest_local_published_at), as.numeric(as.POSIXct("2026-09-04 15:00:00", tz = "UTC")))
+  cached <- investdatar::get_local_rss_data("fed_press_all", local_path = local_dir)
+  expect_equal(cached$guid, "https://example.test/a")
+  expect_equal(cached$summary, "current")
 })
 
 test_that("RSS registry helpers return schema-stable tables and batch sync summaries", {

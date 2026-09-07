@@ -81,7 +81,15 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 }
 
 .clean_rss_feed_text <- function(feed_text) {
-  feed_text <- sub("^\ufeff", "", feed_text)
+  raw <- charToRaw(feed_text)
+  if (length(raw) >= 3L && identical(raw[seq_len(3L)], as.raw(c(0xef, 0xbb, 0xbf)))) {
+    feed_text <- rawToChar(raw[-seq_len(3L)])
+  }
+  feed_text <- enc2utf8(feed_text)
+  feed_text <- iconv(feed_text, from = "UTF-8", to = "UTF-8", sub = "")
+  # Preserve CDATA contents when malformed feeds require the HTML fallback.
+  feed_text <- gsub("<![CDATA[", "", feed_text, fixed = TRUE)
+  feed_text <- gsub("]]>", "", feed_text, fixed = TRUE)
   sub("^[[:space:]]+", "", feed_text)
 }
 
@@ -93,6 +101,14 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
   out
 }
 
+.extract_rss_child_text <- function(node, name) {
+  xpath <- sprintf(
+    "./*[translate(local-name(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = '%s']",
+    tolower(name)
+  )
+  .extract_xml_text(node, xpath)
+}
+
 .parse_rss_pubdate <- function(x, tz = "UTC") {
   x <- trimws(x)
   x[!nzchar(x)] <- NA_character_
@@ -102,9 +118,9 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 
   normalized <- gsub("(\\s)(\\d):(\\d\\d)(:\\d\\d)?(\\s[A-Z]{2,4})$", "\\g{1}0\\2:\\3\\4\\5", x, perl = TRUE)
   normalized <- gsub(":(\\d)(\\s[A-Z]{2,4})$", ":0\\1\\2", normalized, perl = TRUE)
-  zone <- sub("^.*\\s([A-Z]{2,4})$", "\\1", normalized, perl = TRUE)
+  zone <- sub("^.*\\s([A-Z]{2,4}|[+-][0-9]{4})$", "\\1", normalized, perl = TRUE)
   zone[zone == normalized] <- NA_character_
-  ts_text <- trimws(sub("\\s[A-Z]{2,4}$", "", normalized, perl = TRUE))
+  ts_text <- trimws(sub("\\s([A-Z]{2,4}|[+-][0-9]{4})$", "", normalized, perl = TRUE))
 
   parsed <- vapply(seq_along(ts_text), function(i) {
     if (is.na(ts_text[[i]])) {
@@ -112,17 +128,24 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
     }
 
     zone_i <- zone[[i]]
-    parse_tz <- if (!is.na(zone_i) && zone_i %in% c("EST", "EDT")) "America/New_York" else tz
-    ts_i <- as.POSIXct(
-      ts_text[[i]],
-      tz = parse_tz,
-      tryFormats = c(
-        "%a, %d %b %Y %H:%M:%S",
-        "%A, %d %b %Y %H:%M:%S",
-        "%a, %e %b %Y %H:%M:%S",
-        "%A, %e %b %Y %H:%M:%S"
+    numeric_zone <- !is.na(zone_i) && grepl("^[+-][0-9]{4}$", zone_i)
+    if (numeric_zone) {
+      ts_i <- as.POSIXct(
+        normalized[[i]], format = "%a, %d %b %Y %H:%M:%S %z", tz = tz
       )
-    )
+    } else {
+      parse_tz <- if (!is.na(zone_i) && zone_i %in% c("EST", "EDT")) "America/New_York" else tz
+      ts_i <- as.POSIXct(
+        ts_text[[i]],
+        tz = parse_tz,
+        tryFormats = c(
+          "%a, %d %b %Y %H:%M:%S",
+          "%A, %d %b %Y %H:%M:%S",
+          "%a, %e %b %Y %H:%M:%S",
+          "%A, %e %b %Y %H:%M:%S"
+        )
+      )
+    }
     as.numeric(ts_i)
   }, numeric(1))
 
@@ -181,12 +204,12 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
       data.table::data.table(
         feed_id = feed_id,
         source = source,
-        guid = .extract_xml_text(item, "./guid"),
-        published_at = .parse_rss_pubdate(.extract_xml_text(item, "./pubDate"), tz = "UTC"),
-        title = .extract_xml_text(item, "./title"),
-        summary = .extract_xml_text(item, "./description"),
-        link = .extract_xml_text(item, "./link"),
-        author = .extract_xml_text(item, "./author"),
+        guid = .extract_rss_child_text(item, "guid"),
+        published_at = .parse_rss_pubdate(.extract_rss_child_text(item, "pubDate"), tz = "UTC"),
+        title = .extract_rss_child_text(item, "title"),
+        summary = .extract_rss_child_text(item, "description"),
+        link = .extract_rss_child_text(item, "link"),
+        author = .extract_rss_child_text(item, "author"),
         category = if (length(categories) == 0L) NA_character_ else paste(xml2::xml_text(categories, trim = TRUE), collapse = " | ")
       )
     }),
@@ -249,6 +272,34 @@ get_rss_registry <- function(registry_path = get_rss_registry_file_path()) {
 
   data.table::setorderv(dt, "published_at")
   dt[]
+}
+
+.reconcile_rss_legacy_identities <- function(old_dt, new_dt, feed_id) {
+  old_dt <- .as_data_table(old_dt)
+  new_dt <- .as_data_table(new_dt)
+  if (is.null(old_dt) || nrow(old_dt) == 0L || is.null(new_dt) || nrow(new_dt) == 0L ||
+      !all(c("feed_id", "guid", "link") %in% names(old_dt)) ||
+      !all(c("feed_id", "guid", "link") %in% names(new_dt))) return(old_dt)
+
+  legacy <- paste0(feed_id, "::")
+  for (i in seq_len(nrow(new_dt))) {
+    if (is.na(new_dt$guid[[i]]) || !nzchar(new_dt$guid[[i]]) ||
+        is.na(new_dt$link[[i]]) || !nzchar(new_dt$link[[i]])) next
+    matches <- which(old_dt$feed_id == feed_id & old_dt$link == new_dt$link[[i]])
+    if (!length(matches) && "title" %in% names(old_dt) && "title" %in% names(new_dt) &&
+        !is.na(new_dt$title[[i]]) && nzchar(new_dt$title[[i]])) {
+      matches <- which(old_dt$feed_id == feed_id & old_dt$title == new_dt$title[[i]])
+    }
+    if (!length(matches)) next
+    existing <- matches[old_dt$guid[matches] == new_dt$guid[[i]]]
+    legacy_matches <- matches[startsWith(old_dt$guid[matches], legacy)]
+    if (length(existing) && length(legacy_matches)) {
+      old_dt <- old_dt[-legacy_matches]
+    } else if (length(legacy_matches)) {
+      old_dt$guid[legacy_matches[[1L]]] <- new_dt$guid[[i]]
+    }
+  }
+  .clean_local_rss_dt(old_dt)
 }
 
 #' Get RSS Feed Data
@@ -335,17 +386,36 @@ sync_local_rss_data <- function(feed_id, url, parser = c("plain", "gdpnow"), loc
 
   old_dt <- .safe_read_rds(local_file_path, default = NULL)
   cleaned_old_dt <- .clean_local_rss_dt(old_dt)
+  cleaned_old_dt <- .reconcile_rss_legacy_identities(cleaned_old_dt, new_dt, feed_id)
   if (!is.null(old_dt) && !identical(old_dt, cleaned_old_dt)) {
     .safe_save_rds(cleaned_old_dt, local_file_path)
   }
 
-  sync_local_data(
+  old_keys <- if (is.null(cleaned_old_dt) || nrow(cleaned_old_dt) == 0L) {
+    data.table::data.table(feed_id = character(), guid = character())
+  } else {
+    unique(cleaned_old_dt[, .(feed_id, guid)])
+  }
+  inserted <- new_dt[!old_keys, on = c("feed_id", "guid")]
+  res <- sync_local_data(
     new_data = new_dt,
     local_file_path = local_file_path,
     key_cols = c("feed_id", "guid"),
     order_cols = "published_at",
     source_utime = source_utime
   )
+  inserted <- unique(inserted, by = c("feed_id", "guid"))
+  inserted_times <- inserted$published_at[!is.na(inserted$published_at)]
+  local_times <- if (!is.null(res$data) && "published_at" %in% names(res$data)) {
+    res$data$published_at[!is.na(res$data$published_at)]
+  } else as.POSIXct(character(), tz = "UTC")
+  res$n_new_rows <- nrow(inserted)
+  res$inserted_ids <- as.character(inserted$guid)
+  res$latest_fetched_published_at <- if (nrow(new_dt) && any(!is.na(new_dt$published_at))) max(new_dt$published_at, na.rm = TRUE) else NULL
+  res$latest_local_published_at <- if (length(local_times)) max(local_times) else NULL
+  res$inserted_published_at_min <- if (length(inserted_times)) min(inserted_times) else NULL
+  res$inserted_published_at_max <- if (length(inserted_times)) max(inserted_times) else NULL
+  res
 }
 
 #' Synchronize All RSS Registry Feeds
@@ -400,6 +470,11 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
           updated = isTRUE(res$updated),
           n_rows = if (!is.null(res$n_rows)) res$n_rows else NA_integer_,
           n_new_rows = if (!is.null(res$n_new_rows)) res$n_new_rows else NA_integer_,
+          latest_fetched_published_at = res$latest_fetched_published_at %||% as.POSIXct(NA),
+          latest_local_published_at = res$latest_local_published_at %||% as.POSIXct(NA),
+          inserted_published_at_min = res$inserted_published_at_min %||% as.POSIXct(NA),
+          inserted_published_at_max = res$inserted_published_at_max %||% as.POSIXct(NA),
+          inserted_ids = list(res$inserted_ids %||% character()),
           error = NA_character_
         )
       },
@@ -410,6 +485,11 @@ sync_all_rss_registry_data <- function(registry = get_rss_registry(), local_path
           updated = FALSE,
           n_rows = NA_integer_,
           n_new_rows = NA_integer_,
+          latest_fetched_published_at = as.POSIXct(NA),
+          latest_local_published_at = as.POSIXct(NA),
+          inserted_published_at_min = as.POSIXct(NA),
+          inserted_published_at_max = as.POSIXct(NA),
+          inserted_ids = list(character()),
           error = conditionMessage(e),
           error_class = class(e)[[1L]],
           http_status = if (inherits(e, "investdatar_http_error")) e$status_code else NA_integer_
