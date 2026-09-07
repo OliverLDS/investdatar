@@ -102,6 +102,66 @@ test_that("Yahoo overlap audit uses asset-appropriate FX tolerance", {
   expect_false(any(out$findings$issue_type == "ohlc_discrepancy"))
 })
 
+test_that("Yahoo FX session dates use exchange timezone at UTC boundaries", {
+  normalize <- getFromNamespace(".yahoo_fx_session_date", "investdatar")
+  timestamps <- as.numeric(as.POSIXct(
+    c("2026-08-13 23:00:00", "2026-08-14 23:00:00", "2026-08-16 23:00:00"),
+    tz = "UTC"
+  ))
+  expect_equal(
+    normalize(timestamps, "Europe/London"),
+    as.Date(c("2026-08-13", "2026-08-14", "2026-08-16"))
+  )
+  expect_setequal(
+    getFromNamespace(".yahoo_overlap_nontrading_dates", "investdatar")(
+      "FX_24_5", as.Date(c("2026-08-14", "2026-08-15", "2026-08-16", "2026-08-17"))
+    ),
+    as.Date(c("2026-08-15", "2026-08-16"))
+  )
+})
+
+test_that("Yahoo FX audit distinguishes an actual missing completed bar", {
+  local <- .yahoo_overlap_test_rows(dates = as.Date(c("2026-09-02", "2026-09-03")))
+  local[, symbol := "EURUSD=X"]
+  yahoo <- data.table::copy(local)[date == as.Date("2026-09-02")]
+  registry <- data.table::data.table(yahoo_finance_ticker = "EURUSD=X")
+  catalog <- .yahoo_overlap_test_catalog(list(list(
+    instrument_id = "fx.eur-usd", canonical_symbol = "EUR/USD", asset_class = "foreign_exchange",
+    instrument_type = "spot_fx", market_calendar = "FX_24_5", provider_identifiers = list(yahoo = "EURUSD=X")
+  )))
+
+  out <- testthat::with_mocked_bindings(
+    get_instrument_catalog = function(...) catalog,
+    get_completed_local_quantmod_OHLC = function(...) local,
+    .yahoo_overlap_fetch = function(...) yahoo,
+    audit_yahoofinance_recent_overlap(
+      registry = registry, local_path = withr::local_tempdir(), output_dir = withr::local_tempdir(),
+      as_of = as.POSIXct("2026-09-07", tz = "UTC"), overlap_days = 5L
+    ),
+    .package = "investdatar"
+  )
+  expect_true(any(out$findings$issue_type == "yahoo_missing_completed_bar"))
+  expect_equal(out$findings[out$findings$issue_type == "yahoo_missing_completed_bar", date], as.Date("2026-09-03"))
+})
+
+test_that("Yahoo FX Friday session-label gaps are informational only", {
+  local <- .yahoo_overlap_test_rows(dates = as.Date(c("2026-09-03", "2026-09-04")))
+  local[, symbol := "EURUSD=X"]
+  yahoo <- data.table::copy(local)[date == as.Date("2026-09-03")]
+  attr(yahoo, "investdatar_yahoo_session_metadata") <- list(
+    instrument_type = "CURRENCY", exchange_timezone = "Europe/London", utc_timestamp_hours = 23L
+  )
+  compared <- getFromNamespace(".yahoo_overlap_compare_rows", "investdatar")(
+    "EURUSD=X", "fx.eur-usd", local, yahoo,
+    getFromNamespace(".yahoo_overlap_tolerance", "investdatar")("foreign_exchange", "spot_fx"),
+    "FX_24_5", as.Date("2026-09-03"), as.Date("2026-09-04"),
+    session_metadata = attr(yahoo, "investdatar_yahoo_session_metadata")
+  )
+  expect_true(any(compared$findings$issue_type == "fx_session_label_gap"))
+  expect_false(any(compared$findings$issue_type == "yahoo_missing_completed_bar"))
+  expect_true(all(compared$findings$severity == "informational"))
+})
+
 test_that("Yahoo overlap audit uses Eastmoney only for permitted fallback corroboration", {
   local <- .yahoo_overlap_test_rows(close = 100)
   local[, `:=`(symbol = "000300.SS", source = "eastmoney")]

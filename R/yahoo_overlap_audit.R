@@ -97,22 +97,48 @@
   )
 }
 
-.yahoo_overlap_compare_rows <- function(ticker, instrument_id, cached, yahoo, profile, calendar, from, to) {
+.yahoo_overlap_compare_rows <- function(ticker, instrument_id, cached, yahoo, profile, calendar, from, to,
+                                        session_metadata = NULL) {
   all_dates <- seq(as.Date(from), as.Date(to), by = "day")
   nontrading <- .yahoo_overlap_nontrading_dates(calendar, all_dates)
   cached_dates <- unique(cached$date)
   yahoo_dates <- unique(yahoo$date)
   issues <- list()
+  date_setdiff <- function(x, y) as.Date(setdiff(as.character(x), as.character(y)))
+  date_intersect <- function(x, y) as.Date(intersect(as.character(x), as.character(y)))
 
-  missing_cache <- setdiff(yahoo_dates, cached_dates)
-  missing_cache <- setdiff(missing_cache, nontrading)
+  missing_cache <- date_setdiff(yahoo_dates, cached_dates)
+  missing_cache <- date_setdiff(missing_cache, nontrading)
   if (length(missing_cache)) {
     issues[[length(issues) + 1L]] <- data.table::rbindlist(lapply(missing_cache, function(d) {
       .yahoo_overlap_issue(ticker, instrument_id, d, "missing_in_cache", detail = "Completed date returned by Yahoo is absent locally.")
     }))
   }
-  missing_yahoo <- setdiff(cached_dates, yahoo_dates)
-  missing_yahoo <- setdiff(missing_yahoo, nontrading)
+  missing_yahoo <- date_setdiff(cached_dates, yahoo_dates)
+  missing_yahoo <- date_setdiff(missing_yahoo, nontrading)
+  fx_label_gap <- identical(calendar, "FX_24_5") && is.list(session_metadata) &&
+    identical(session_metadata$instrument_type, "CURRENCY") &&
+    identical(session_metadata$exchange_timezone, "Europe/London") &&
+    23L %in% session_metadata$utc_timestamp_hours
+  if (fx_label_gap) {
+    friday_gaps <- missing_yahoo[weekdays(missing_yahoo) == "Friday"]
+    if (length(friday_gaps)) {
+      issues[[length(issues) + 1L]] <- data.table::rbindlist(lapply(friday_gaps, function(d) {
+        row <- cached[cached$date == d]
+        .yahoo_overlap_issue(
+          ticker, instrument_id, d, "fx_session_label_gap", "date",
+          cached_value = as.character(d), yahoo_value = NA_character_,
+          cached_source = row$source, severity = "informational",
+          related_integrity_issue = FALSE,
+          detail = paste0(
+            "Yahoo CURRENCY daily epochs use a Europe/London session boundary at 23:00 UTC; ",
+            "the Friday cache label is not classified as a missing completed bar."
+          )
+        )
+      }))
+      missing_yahoo <- date_setdiff(missing_yahoo, friday_gaps)
+    }
+  }
   if (length(missing_yahoo)) {
     issues[[length(issues) + 1L]] <- data.table::rbindlist(lapply(missing_yahoo, function(d) {
       row <- cached[cached$date == d]
@@ -121,7 +147,7 @@
     }))
   }
 
-  common_dates <- intersect(cached_dates, yahoo_dates)
+  common_dates <- date_intersect(cached_dates, yahoo_dates)
   for (d in common_dates) {
     old <- cached[cached$date == d]
     new <- yahoo[yahoo$date == d]
@@ -171,7 +197,64 @@
   list(findings = findings, nontrading_dates = nontrading)
 }
 
-.yahoo_overlap_fetch <- function(ticker, from, to, max_attempts = 3L, retry_delay_seconds = 1) {
+.yahoo_fx_session_date <- function(timestamp, exchange_timezone) {
+  if (!is.character(exchange_timezone) || length(exchange_timezone) != 1L || !nzchar(exchange_timezone)) {
+    stop("Yahoo FX chart metadata must provide exchangeTimezoneName.", call. = FALSE)
+  }
+  # Investdatar's existing Yahoo cache uses the UTC calendar date of Yahoo's
+  # epoch. Preserve that key convention; exchange_timezone is retained as an
+  # explicit metadata guard for the FX session-label classification below.
+  as.Date(as.POSIXct(as.numeric(timestamp), origin = "1970-01-01", tz = "UTC"), tz = "UTC")
+}
+
+.fetch_yahoo_fx_ohlc <- function(ticker, label, from, to, max_attempts = 3L, retry_delay_seconds = 1) {
+  url <- paste0("https://query1.finance.yahoo.com/v8/finance/chart/", utils::URLencode(ticker, reserved = TRUE))
+  response <- .http_request(
+    "GET", url,
+    query = list(
+      period1 = as.numeric(as.POSIXct(as.Date(from) - 2L, tz = "UTC")),
+      period2 = as.numeric(as.POSIXct(as.Date(to) + 2L, tz = "UTC")),
+      interval = "1d", events = "history", includePrePost = "false",
+      includeAdjustedClose = "true"
+    ),
+    max_attempts = max_attempts,
+    retry_status = c(408L, 425L, 429L, 500L, 502L, 503L, 504L),
+    timeout_seconds = 30
+  )
+  payload <- jsonlite::fromJSON(.http_response_text(response), simplifyVector = FALSE)
+  result <- payload$chart$result[[1L]]
+  metadata <- if (is.null(result)) NULL else result$meta
+  if (is.null(result) || is.null(result$timestamp) || is.null(result$indicators$quote[[1L]]) ||
+      is.null(metadata$instrumentType) || !identical(metadata$instrumentType, "CURRENCY") ||
+      is.null(metadata$exchangeTimezoneName)) {
+    stop("Yahoo FX chart response lacks required currency session metadata for ", ticker, call. = FALSE)
+  }
+  timestamps <- unlist(result$timestamp, use.names = FALSE)
+  quote <- result$indicators$quote[[1L]]
+  n <- length(timestamps)
+  session_dates <- .yahoo_fx_session_date(timestamps, metadata$exchangeTimezoneName)
+  dt <- data.table::data.table(
+    date = session_dates,
+    datetime = as.POSIXct(as.numeric(timestamps), origin = "1970-01-01", tz = "UTC"),
+    open = .yahoo_chart_numeric(quote$open, n), high = .yahoo_chart_numeric(quote$high, n),
+    low = .yahoo_chart_numeric(quote$low, n), close = .yahoo_chart_numeric(quote$close, n),
+    volume = .yahoo_chart_numeric(quote$volume, n), adj_close = NA_real_, symbol = label
+  )
+  dt <- .standardize_market_ohlcv(dt, source = "quantmod_yahoo", symbol = label, interval = "1d", time_col = "datetime")
+  dt[, date := session_dates]
+  attr(dt, "investdatar_yahoo_session_metadata") <- list(
+    instrument_type = metadata$instrumentType,
+    exchange_timezone = metadata$exchangeTimezoneName,
+    utc_timestamp_hours = unique(as.integer(format(as.POSIXct(as.numeric(timestamps), origin = "1970-01-01", tz = "UTC"), "%H")))
+  )
+  dt[date >= as.Date(from) & date <= as.Date(to)]
+}
+
+.yahoo_overlap_fetch <- function(ticker, from, to, calendar = NULL, max_attempts = 3L, retry_delay_seconds = 1) {
+  if (identical(calendar, "FX_24_5")) {
+    return(.fetch_yahoo_fx_ohlc(ticker, label = ticker, from = from, to = to,
+                                max_attempts = max_attempts, retry_delay_seconds = retry_delay_seconds))
+  }
   fetch_quantmod_OHLC(
     ticker = ticker, label = ticker, from = from, to = to, src = "yahoo",
     fallback_source = NULL, max_attempts = max_attempts,
@@ -195,6 +278,9 @@
 #' @param overlap_days Number of recent calendar days to inspect. Defaults to
 #'   `35`.
 #' @param as_of UTC time used to exclude the current market-calendar date.
+#'   For `FX_24_5`, Yahoo currency chart epochs are retained under their UTC
+#'   cache-date convention; the response's exchange timezone and session-boundary
+#'   metadata are used only to classify a narrow Friday session-label gap.
 #' @param fallback_corroboration One of `"on_issue"`, `"none"`, or `"all"`.
 #'   The default uses only existing TLS-verified Eastmoney mappings for
 #'   `000300.SS` and `CNH=X`; BaoStock is never queried.
@@ -276,7 +362,7 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
       )
     }
     yahoo <- tryCatch(
-      .yahoo_overlap_fetch(yahoo_symbol, requested_from, requested_to,
+      .yahoo_overlap_fetch(yahoo_symbol, requested_from, requested_to, calendar = calendar,
                            max_attempts = max_attempts, retry_delay_seconds = retry_delay_seconds),
       error = function(e) e
     )
@@ -289,13 +375,15 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
       report$error <- conditionMessage(yahoo)
       report$yahoo_rows <- 0L
     } else {
+      session_metadata <- attr(yahoo, "investdatar_yahoo_session_metadata")
       yahoo <- data.table::copy(yahoo)
       yahoo[, date := as.Date(date)]
       yahoo <- yahoo[date >= requested_from & date <= requested_to]
       report$yahoo_rows <- nrow(yahoo)
       compared <- .yahoo_overlap_compare_rows(
         ticker, catalog$instrument_id[[catalog_index]], cached, yahoo, profile, calendar,
-        requested_from, requested_to
+        requested_from, requested_to,
+        session_metadata = session_metadata
       )
       if (nrow(compared$findings)) findings[[length(findings) + 1L]] <- compared$findings
       integrity_issue <- nrow(compared$findings[compared$findings[["severity"]] == "integrity"]) > 0L

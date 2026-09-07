@@ -29,7 +29,10 @@ Yahoo Finance data path.}
 \item{overlap_days}{Number of recent calendar days to inspect. Defaults to
 \code{35}.}
 
-\item{as_of}{UTC time used to exclude the current market-calendar date.}
+\item{as_of}{UTC time used to exclude the current market-calendar date.
+For \code{FX_24_5}, Yahoo currency chart epochs are retained under their UTC
+cache-date convention; the response's exchange timezone and session-boundary
+metadata are used only to classify a narrow Friday session-label gap.}
 
 \item{fallback_corroboration}{One of \code{"on_issue"}, \code{"none"}, or \code{"all"}.
 The default uses only existing TLS-verified Eastmoney mappings for
