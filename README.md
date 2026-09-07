@@ -366,13 +366,15 @@ normalization through `normalize_instrument_catalog()`. In schema 1.1.0,
 MIC-like values such as `XNYS` are calendar aliases, not venue metadata.
 `primary_listing_mic` is a separate nullable venue field, `quote_unit` is
 required, and `audit_profile` explicitly controls tolerance, volume semantics,
-and completion rules. `primary_listing_mic` remains null for indices, yields,
+and completion rules. The dedicated `ICE_DXY` calendar treats DXY as a weekday
+index with only observed New Year and Christmas holidays; it is not an equity
+or generic FX calendar. `primary_listing_mic` remains null for indices, yields,
 and continuous futures because it is venue provenance, not a completed-bar
 calendar. Yahoo futures symbols are provider-defined continuous series, not
 deliverable contracts; their roll treatment and volume semantics are explicit
-in `continuous_contract`. `DX-Y.NYB` remains skipped because its Yahoo daily
-completed-bar calendar is not sufficiently verified; the audit reports that
-structured reason rather than guessing.
+in `continuous_contract`. `DX-Y.NYB` is mapped to the ICE U.S. Dollar Index
+(`DXY`) with Yahoo retained only as its provider identifier; Yahoo chart
+metadata is not treated as the benchmark authority.
 
 The read-only Yahoo overlap audit distinguishes provider availability from
 cache integrity. A window with no usable Yahoo rows emits one availability

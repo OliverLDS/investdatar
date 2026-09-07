@@ -34,9 +34,28 @@ test_that("instrument catalog has a valid provider-neutral schema", {
   )))
   expect_true(all(validation$catalog$market_calendar %in% c(
     "US_EQUITY", "XNYS", "XSHG", "XHKG", "XJPX", "EU_EQUITY",
-    "US_TREASURY", "CME_FUTURES", "ICE_FUTURES", "FX_24_5", "CRYPTO_24_7"
+    "US_TREASURY", "ICE_DXY", "CME_FUTURES", "ICE_FUTURES", "FX_24_5", "CRYPTO_24_7"
   )))
   expect_true(all(validation$catalog$price_frequency %in% c("1d", "4h")))
+})
+
+test_that("DXY uses a dedicated ICE calendar and provider mapping", {
+  catalog <- investdatar::get_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path(), schema_version = "1.1.0"
+  )
+  dxy <- catalog[canonical_symbol == "DXY"]
+  expect_equal(nrow(dxy), 1L)
+  expect_equal(dxy$instrument_id, "index.us.dxy")
+  expect_equal(dxy$market_calendar, "ICE_DXY")
+  expect_equal(dxy$benchmark_administrator, "ICE_DATA_INDICES")
+  expect_true(is.na(dxy$quote_currency))
+  expect_equal(dxy$quote_unit, "index_points")
+  expect_true(is.na(dxy$primary_listing_mic))
+  expect_false(dxy$audit_profile[[1L]]$volume$meaningful)
+  expect_equal(dxy$provider_identifiers[[1L]]$yahoo, "DX-Y.NYB")
+  expect_equal(investdatar:::.yahoo_overlap_nontrading_dates(
+    "ICE_DXY", as.Date(c("2026-08-14", "2026-08-15", "2026-08-16", "2026-12-25"))
+  ), as.Date(c("2026-08-15", "2026-08-16", "2026-12-25")))
 })
 
 test_that("rates, indices, and continuous futures have explicit 1.1 metadata", {

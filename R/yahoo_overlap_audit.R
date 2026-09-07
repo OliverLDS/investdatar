@@ -16,6 +16,7 @@
     XNYS = "America/New_York",
     US_EQUITY = "America/New_York",
     US_TREASURY = "America/New_York",
+    ICE_DXY = "America/New_York",
     US_FUTURES = "America/New_York",
     CME_FUTURES = "America/Chicago",
     ICE_FUTURES = "America/New_York",
@@ -28,6 +29,15 @@
 }
 
 .yahoo_overlap_known_holidays <- function(calendar, years) {
+  if (identical(calendar, "ICE_DXY")) {
+    years <- sort(unique(as.integer(years)))
+    holidays <- unlist(lapply(years, function(year) {
+      dates <- as.Date(sprintf("%s-%s", year, c("01-01", "12-25")))
+      dates + ifelse(weekdays(dates) == "Saturday", -1L,
+                     ifelse(weekdays(dates) == "Sunday", 1L, 0L))
+    }), use.names = FALSE)
+    return(as.Date(holidays, origin = "1970-01-01"))
+  }
   if (!calendar %in% c("XNYS", "US_EQUITY", "US_TREASURY", "US_FUTURES", "CME_FUTURES", "ICE_FUTURES")) {
     return(as.Date(character()))
   }
@@ -60,14 +70,7 @@
 }
 
 .yahoo_overlap_catalog_skip_reason <- function(ticker) {
-  reasons <- c(
-    "DX-Y.NYB" = paste(
-      "ICE Dollar Index identity is known, but its Yahoo daily completed-bar",
-      "calendar has not been verified for this audit contract."
-    )
-  )
-  if (ticker %in% names(reasons)) unname(reasons[[ticker]]) else
-    "No provider-neutral instrument catalog entry defines calendar, asset class, or tolerances."
+  "No provider-neutral instrument catalog entry defines calendar, asset class, or tolerances."
 }
 
 .yahoo_overlap_nontrading_dates <- function(calendar, dates) {
@@ -177,6 +180,7 @@
   }
 
   common_dates <- date_intersect(cached_dates, yahoo_dates)
+  common_dates <- date_setdiff(common_dates, nontrading)
   for (d in common_dates) {
     old <- cached[cached$date == d]
     new <- yahoo[yahoo$date == d]

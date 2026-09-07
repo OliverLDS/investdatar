@@ -11,7 +11,7 @@
 
 .instrument_catalog_market_calendars <- c(
   "US_EQUITY", "US_FUTURES", "CME_FUTURES", "ICE_FUTURES", "XSHG",
-  "XHKG", "XJPX", "EU_EQUITY", "US_TREASURY", "FX_24_5",
+  "XHKG", "XJPX", "EU_EQUITY", "US_TREASURY", "ICE_DXY", "FX_24_5",
   "CRYPTO_24_7", "XNYS"
 )
 
