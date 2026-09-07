@@ -28,12 +28,12 @@ test_that("instrument catalog has a valid provider-neutral schema", {
     "provider_identifiers", "primary_source", "fallback_sources",
     "price_frequency", "supported_intervals", "active"
   ) %in% names(validation$catalog)))
-  expect_true(all(validation$catalog$schema_version == "1.0.0"))
+  expect_true(all(validation$catalog$schema_version %in% c("1.0.0", "1.1.0")))
   expect_true(all(validation$catalog$asset_class %in% c(
     "equity", "fixed_income", "commodity", "foreign_exchange", "cryptocurrency"
   )))
   expect_true(all(validation$catalog$market_calendar %in% c(
-    "XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7"
+    "US_EQUITY", "XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7"
   )))
   expect_true(all(validation$catalog$price_frequency %in% c("1d", "4h")))
 })
@@ -208,4 +208,41 @@ test_that("instrument catalog reports null enum values as validation errors", {
   expect_false(validation$valid)
   expect_true(any(validation$errors$check == "nullability"))
   expect_true(any(validation$errors$check == "asset_class"))
+})
+
+test_that("schema 1.1 normalizes legacy calendars and preserves provider routing", {
+  legacy <- investdatar::get_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path()
+  )
+  refined <- investdatar::normalize_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path()
+  )
+
+  expect_equal(nrow(refined), nrow(legacy))
+  expect_true(all(refined$schema_version == "1.1.0"))
+  expect_equal(refined[canonical_symbol == "SPY", market_calendar][[1L]], "US_EQUITY")
+  expect_equal(refined[canonical_symbol == "SPY", provider_identifiers][[1L]]$yahoo, "SPY")
+  expect_equal(refined[canonical_symbol == "EUR/USD", quote_unit][[1L]], "currency_price")
+  expect_equal(refined[canonical_symbol == "BTC/USD", market_calendar][[1L]], "CRYPTO_24_7")
+})
+
+test_that("Batch 1 and Batch 2 catalog coverage has explicit metadata", {
+  catalog <- investdatar::normalize_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path()
+  )
+  expected <- c(
+    "XLK", "XLF", "XLE", "XLI", "XLY", "XLP", "XLV", "XLU", "XLC", "XLB", "XLRE",
+    "SOXX", "LQD", "QQQ", "IVV", "IEFA", "IWM", "EFA", "IEF", "SHY", "AGG", "SLV",
+    "IAU", "IBIT", "DBC", "UUP", "FXE", "AAPL", "GOOG", "BMNR", "MSTR", "COIN",
+    "TSLA", "PLTR", "ORCL", "AVGO", "ASML", "AMZN", "MSFT", "AMD", "IBM", "NVDA",
+    "USD/JPY", "GBP/USD", "ETH/USD"
+  )
+  covered <- catalog[canonical_symbol %in% expected]
+  expect_equal(nrow(covered), length(expected))
+  expect_true(all(covered$market_calendar %in% c("US_EQUITY", "FX_24_5", "CRYPTO_24_7")))
+  expect_true(all(!is.na(covered$quote_unit)))
+  expect_true(all(vapply(covered$audit_profile, function(x) {
+    is.list(x) && is.list(x$price_tolerance) && !is.null(x$completion_rule)
+  }, logical(1))))
+  expect_true(all(vapply(covered$provider_identifiers, function(x) !is.null(x$yahoo), logical(1))))
 })

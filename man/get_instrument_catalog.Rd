@@ -7,7 +7,8 @@
 get_instrument_catalog(
   catalog_path = .instrument_catalog_seed_path(),
   yahoo_registry_path = get_yahoofinance_seed_registry_path(),
-  validate = TRUE
+  validate = TRUE,
+  schema_version = "1.0.0"
 )
 }
 \arguments{
@@ -21,6 +22,10 @@ registry explicitly.}
 
 \item{validate}{Logical. When \code{TRUE} (the default), validate the catalog and
 Yahoo registry before returning it.}
+
+\item{schema_version}{Output schema. The default \code{"1.0.0"} preserves the
+existing table contract. \code{"1.1.0"} normalizes legacy records and exposes
+refined calendar, venue, quote-unit, continuous-contract, and audit fields.}
 }
 \value{
 A \code{data.table} with one row per instrument. \code{provider_identifiers},

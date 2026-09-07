@@ -32,7 +32,9 @@ validated projections, not instructions for synchronization.
 Every public field is required and non-null except that \code{fallback_sources}
 may be an empty array. \code{asset_class} must be one of \code{equity},
 \code{fixed_income}, \code{commodity}, \code{foreign_exchange}, or \code{cryptocurrency}.
-\code{market_calendar} must be one of \code{XNYS}, \code{XSHG}, \code{FX_24_5}, or
+\code{market_calendar} is the completed-bar session calendar, not a listing
+venue. Schema \verb{1.0.0} accepts legacy \code{XNYS} as a calendar alias; schema
+\verb{1.1.0} uses values such as \code{US_EQUITY}, \code{XSHG}, \code{FX_24_5}, and
 \code{CRYPTO_24_7}. \code{provider_identifiers} is a non-empty named list whose
 values are non-empty provider symbols. \code{quote_currency} is a three-letter
 uppercase currency code, or the recognized stablecoin quote code \code{USDT} or

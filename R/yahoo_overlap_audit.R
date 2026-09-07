@@ -14,6 +14,10 @@
   tz <- switch(
     calendar,
     XNYS = "America/New_York",
+    US_EQUITY = "America/New_York",
+    US_FUTURES = "America/New_York",
+    CME_FUTURES = "America/Chicago",
+    ICE_FUTURES = "America/New_York",
     XSHG = "Asia/Shanghai",
     FX_24_5 = "UTC",
     CRYPTO_24_7 = "UTC",
@@ -59,7 +63,18 @@
   dates[weekend | dates %in% holidays]
 }
 
-.yahoo_overlap_tolerance <- function(asset_class, instrument_type) {
+.yahoo_overlap_tolerance <- function(asset_class, instrument_type, audit_profile = NULL) {
+  if (is.list(audit_profile) && is.list(audit_profile$price_tolerance) &&
+      !is.null(audit_profile$price_tolerance$absolute) &&
+      !is.null(audit_profile$price_tolerance$relative)) {
+    volume <- audit_profile$volume %||% list()
+    return(list(
+      absolute = as.numeric(audit_profile$price_tolerance$absolute),
+      relative = as.numeric(audit_profile$price_tolerance$relative),
+      volume_meaningful = isTRUE(volume$meaningful),
+      volume_relative = as.numeric(volume$relative_tolerance %||% 0.01)
+    ))
+  }
   if (identical(instrument_type, "spot_fx") || identical(asset_class, "foreign_exchange")) {
     return(list(absolute = 0.0001, relative = 1e-6, volume_meaningful = FALSE))
   }
@@ -172,7 +187,7 @@
     if (isTRUE(profile$volume_meaningful) && is.finite(old$volume) && is.finite(new$volume) && old$volume > 0 && new$volume > 0) {
       difference <- abs(old$volume - new$volume)
       relative <- difference / max(abs(old$volume), abs(new$volume), 1)
-      if (difference >= 1 && relative > 0.01) {
+      if (difference >= 1 && relative > (profile$volume_relative %||% 0.01)) {
         issues[[length(issues) + 1L]] <- .yahoo_overlap_issue(
           ticker, instrument_id, d, "volume_discrepancy", "volume", old$volume, new$volume,
           difference, relative, old$source, new$source,
@@ -341,7 +356,10 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
     cutoff <- .yahoo_overlap_calendar_today(calendar, as_of)
     requested_to <- cutoff - 1L
     requested_from <- requested_to - overlap_days + 1L
-    profile <- .yahoo_overlap_tolerance(catalog$asset_class[[catalog_index]], catalog$instrument_type[[catalog_index]])
+    profile <- .yahoo_overlap_tolerance(
+      catalog$asset_class[[catalog_index]], catalog$instrument_type[[catalog_index]],
+      catalog$audit_profile[[catalog_index]]
+    )
     cached <- tryCatch(
       get_completed_local_quantmod_OHLC(ticker, local_path = local_path, as_of = as_of),
       error = function(e) NULL

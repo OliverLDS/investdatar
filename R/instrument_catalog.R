@@ -9,11 +9,24 @@
   "equity", "fixed_income", "commodity", "foreign_exchange", "cryptocurrency"
 )
 
-.instrument_catalog_market_calendars <- c("XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7")
+.instrument_catalog_market_calendars <- c(
+  "US_EQUITY", "US_FUTURES", "CME_FUTURES", "ICE_FUTURES", "XSHG",
+  "XHKG", "XJPX", "EU_EQUITY", "FX_24_5", "CRYPTO_24_7", "XNYS"
+)
 
-.instrument_catalog_instrument_types <- c("etf", "equity_index", "spot_fx", "spot_crypto", "perpetual_swap")
+.instrument_catalog_instrument_types <- c(
+  "etf", "common_stock", "adr", "equity_index", "currency_index",
+  "volatility_index", "treasury_yield", "future", "spot_fx", "spot_crypto",
+  "perpetual_swap"
+)
 
 .instrument_catalog_price_frequencies <- c("1d", "4h")
+.instrument_catalog_schema_versions <- c("1.0.0", "1.1.0")
+.instrument_catalog_quote_units <- c(
+  "currency_price", "index_points", "yield_percent", "contract_price"
+)
+.instrument_catalog_mics <- c("XNAS", "XNYS", "ARCX")
+.instrument_catalog_legacy_calendar_aliases <- c(XNYS = "US_EQUITY")
 
 .instrument_catalog_seed_path <- function() {
   path <- system.file("extdata", "instrument_catalog.json", package = "investdatar")
@@ -41,7 +54,8 @@
       "asset_class", "instrument_type", "quote_currency", "market_calendar",
       "price_frequency", "contract_size", "contract_size_currency",
       "quantity_step", "quantity_unit", "settlement_currency",
-      "contract_structure", "active"
+      "contract_structure", "quote_unit", "primary_listing_mic",
+      "benchmark_administrator", "active"
     )
     scalar <- lapply(scalar_names, function(name) record[[name]] %||% NA)
     names(scalar) <- scalar_names
@@ -50,6 +64,8 @@
     row[["primary_source"]] <- list(record$primary_source %||% list())
     row[["fallback_sources"]] <- list(record$fallback_sources %||% list())
     row[["supported_intervals"]] <- list(unlist(record$supported_intervals %||% character(), use.names = FALSE))
+    row[["continuous_contract"]] <- list(record$continuous_contract %||% NULL)
+    row[["audit_profile"]] <- list(record$audit_profile %||% NULL)
     row
   })
   data.table::rbindlist(rows, use.names = TRUE, fill = TRUE)
@@ -93,7 +109,9 @@
 #' Every public field is required and non-null except that `fallback_sources`
 #' may be an empty array. `asset_class` must be one of `equity`,
 #' `fixed_income`, `commodity`, `foreign_exchange`, or `cryptocurrency`.
-#' `market_calendar` must be one of `XNYS`, `XSHG`, `FX_24_5`, or
+#' `market_calendar` is the completed-bar session calendar, not a listing
+#' venue. Schema `1.0.0` accepts legacy `XNYS` as a calendar alias; schema
+#' `1.1.0` uses values such as `US_EQUITY`, `XSHG`, `FX_24_5`, and
 #' `CRYPTO_24_7`. `provider_identifiers` is a non-empty named list whose
 #' values are non-empty provider symbols. `quote_currency` is a three-letter
 #' uppercase currency code, or the recognized stablecoin quote code `USDT` or
@@ -146,13 +164,13 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
       next
     }
 
-    for (field in c("schema_version", "instrument_id", "canonical_symbol", "display_name", "asset_class", "instrument_type", "quote_currency", "market_calendar", "price_frequency")) {
+    for (field in c("schema_version", "instrument_id", "canonical_symbol", "display_name", "asset_class", "instrument_type", "market_calendar", "price_frequency")) {
       if (!.instrument_catalog_is_scalar_string(record[[field]])) {
         errors <- .instrument_catalog_add_error(errors, "nullability", instrument_id, paste0(field, " must be a non-empty string."))
       }
     }
-    if (!identical(record$schema_version, "1.0.0")) {
-      errors <- .instrument_catalog_add_error(errors, "schema_version", instrument_id, "schema_version must be '1.0.0'.")
+    if (!record$schema_version %in% .instrument_catalog_schema_versions) {
+      errors <- .instrument_catalog_add_error(errors, "schema_version", instrument_id, "schema_version must be '1.0.0' or '1.1.0'.")
     }
     if (!.instrument_catalog_is_scalar_string(record$asset_class) || !record$asset_class %in% .instrument_catalog_asset_classes) {
       errors <- .instrument_catalog_add_error(errors, "asset_class", instrument_id, "asset_class is not an allowed enum value.")
@@ -163,8 +181,28 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
     if (!.instrument_catalog_is_scalar_string(record$market_calendar) || !record$market_calendar %in% .instrument_catalog_market_calendars) {
       errors <- .instrument_catalog_add_error(errors, "market_calendar", instrument_id, "market_calendar is not an allowed enum value.")
     }
-    if (!.instrument_catalog_is_scalar_string(record$quote_currency) || !grepl("^[A-Z]{3}$|^USDT$|^USDC$", record$quote_currency)) {
+    quote_currency_valid <- (is.null(record$quote_currency) && identical(record$schema_version, "1.1.0")) ||
+      (.instrument_catalog_is_scalar_string(record$quote_currency) && grepl("^[A-Z]{3}$|^USDT$|^USDC$", record$quote_currency))
+    if (!quote_currency_valid) {
       errors <- .instrument_catalog_add_error(errors, "quote_currency", instrument_id, "quote_currency must be a three-letter uppercase code or USDT/USDC.")
+    }
+    if (identical(record$schema_version, "1.1.0")) {
+      if (!.instrument_catalog_is_scalar_string(record$quote_unit) || !record$quote_unit %in% .instrument_catalog_quote_units) {
+        errors <- .instrument_catalog_add_error(errors, "quote_unit", instrument_id, "quote_unit must be a valid schema 1.1.0 enum value.")
+      }
+      if (!is.null(record$primary_listing_mic) &&
+          (!.instrument_catalog_is_scalar_string(record$primary_listing_mic) || !record$primary_listing_mic %in% .instrument_catalog_mics)) {
+        errors <- .instrument_catalog_add_error(errors, "primary_listing_mic", instrument_id, "primary_listing_mic must be null or a supported MIC.")
+      }
+      if (!is.null(record$benchmark_administrator) && !.instrument_catalog_is_scalar_string(record$benchmark_administrator)) {
+        errors <- .instrument_catalog_add_error(errors, "benchmark_administrator", instrument_id, "benchmark_administrator must be null or a non-empty string.")
+      }
+      if (!is.null(record$continuous_contract) && !is.list(record$continuous_contract)) {
+        errors <- .instrument_catalog_add_error(errors, "continuous_contract", instrument_id, "continuous_contract must be null or an object.")
+      }
+      if (!is.list(record$audit_profile) || is.null(record$audit_profile$price_tolerance) || is.null(record$audit_profile$completion_rule)) {
+        errors <- .instrument_catalog_add_error(errors, "audit_profile", instrument_id, "audit_profile must define price_tolerance and completion_rule.")
+      }
     }
     if (!.instrument_catalog_is_scalar_string(record$price_frequency) || !record$price_frequency %in% .instrument_catalog_price_frequencies) {
       errors <- .instrument_catalog_add_error(errors, "price_frequency", instrument_id, "price_frequency must be '1d' or '4h'.")
@@ -286,6 +324,9 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
 #' @inheritParams validate_instrument_catalog
 #' @param validate Logical. When `TRUE` (the default), validate the catalog and
 #'   Yahoo registry before returning it.
+#' @param schema_version Output schema. The default `"1.0.0"` preserves the
+#'   existing table contract. `"1.1.0"` normalizes legacy records and exposes
+#'   refined calendar, venue, quote-unit, continuous-contract, and audit fields.
 #'
 #' @return A `data.table` with one row per instrument. `provider_identifiers`,
 #'   `primary_source`, `fallback_sources`, and `supported_intervals` are list
@@ -293,13 +334,43 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
 #' @export
 get_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_path(),
                                    yahoo_registry_path = get_yahoofinance_seed_registry_path(),
-                                   validate = TRUE) {
+                                   validate = TRUE, schema_version = "1.0.0") {
+  if (!schema_version %in% .instrument_catalog_schema_versions) {
+    stop("schema_version must be '1.0.0' or '1.1.0'.", call. = FALSE)
+  }
   validation <- validate_instrument_catalog(catalog_path, yahoo_registry_path)
   if (isTRUE(validate) && !validation$valid) {
     messages <- paste(validation$errors$instrument_id, validation$errors$message, sep = ": ")
     stop("Instrument catalog validation failed: ", paste(messages, collapse = "; "), call. = FALSE)
   }
-  validation$catalog[]
+  catalog <- validation$catalog[]
+  if (identical(schema_version, "1.1.0")) {
+    mapped_calendar <- unname(.instrument_catalog_legacy_calendar_aliases[as.character(catalog$market_calendar)])
+    mapped_calendar[is.na(mapped_calendar)] <- as.character(catalog$market_calendar)[is.na(mapped_calendar)]
+    catalog[, schema_version := "1.1.0"]
+    catalog[, market_calendar := mapped_calendar]
+    default_unit <- ifelse(
+      catalog$instrument_type %in% c("equity_index", "currency_index", "volatility_index"),
+      "index_points",
+      ifelse(catalog$instrument_type == "treasury_yield", "yield_percent", "currency_price")
+    )
+    catalog[, quote_unit := ifelse(is.na(quote_unit), default_unit, quote_unit)]
+  }
+  catalog[]
+}
+
+#' Normalize the Instrument Catalog to schema 1.1.0
+#'
+#' Converts legacy schema 1.0.0 records without changing provider identifiers,
+#' cache keys, synchronization routing, or fallback declarations. Legacy
+#' MIC-like calendar values are treated as completed-bar calendar aliases only.
+#'
+#' @inheritParams get_instrument_catalog
+#' @return A normalized `data.table` using schema 1.1.0 fields.
+#' @export
+normalize_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_path(),
+                                          yahoo_registry_path = get_yahoofinance_seed_registry_path()) {
+  get_instrument_catalog(catalog_path, yahoo_registry_path, schema_version = "1.1.0")
 }
 
 .is_okx_perpetual_catalog_row <- function(primary_source, instrument_type, price_frequency) {

@@ -290,5 +290,1715 @@
     "settlement_currency": "USDT",
     "contract_structure": "linear_usdt_margined_perpetual",
     "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlk",
+    "canonical_symbol": "XLK",
+    "display_name": "Technology Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLK"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLK"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlf",
+    "canonical_symbol": "XLF",
+    "display_name": "Financial Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLF"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLF"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xle",
+    "canonical_symbol": "XLE",
+    "display_name": "Energy Select Sector SPDR Fund",
+    "asset_class": "commodity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLE"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLE"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xli",
+    "canonical_symbol": "XLI",
+    "display_name": "Industrial Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLI"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLI"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xly",
+    "canonical_symbol": "XLY",
+    "display_name": "Consumer Discretionary Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLY"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLY"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlp",
+    "canonical_symbol": "XLP",
+    "display_name": "Consumer Staples Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLP"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLP"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlv",
+    "canonical_symbol": "XLV",
+    "display_name": "Health Care Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLV"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLV"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlu",
+    "canonical_symbol": "XLU",
+    "display_name": "Utilities Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLU"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLU"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlc",
+    "canonical_symbol": "XLC",
+    "display_name": "Communication Services Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLC"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLC"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlb",
+    "canonical_symbol": "XLB",
+    "display_name": "Materials Select Sector SPDR Fund",
+    "asset_class": "commodity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLB"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLB"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.xlre",
+    "canonical_symbol": "XLRE",
+    "display_name": "Real Estate Select Sector SPDR Fund",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "XLRE"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "XLRE"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.soxx",
+    "canonical_symbol": "SOXX",
+    "display_name": "iShares Semiconductor ETF",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "SOXX"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "SOXX"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.lqd",
+    "canonical_symbol": "LQD",
+    "display_name": "iShares iBoxx Investment Grade Corporate Bond ETF",
+    "asset_class": "fixed_income",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "LQD"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "LQD"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.qqq",
+    "canonical_symbol": "QQQ",
+    "display_name": "Invesco QQQ Trust",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "QQQ"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "QQQ"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.ivv",
+    "canonical_symbol": "IVV",
+    "display_name": "iShares Core S&P 500 ETF",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IVV"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IVV"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.iefa",
+    "canonical_symbol": "IEFA",
+    "display_name": "iShares Core MSCI EAFE ETF",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IEFA"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IEFA"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.iwm",
+    "canonical_symbol": "IWM",
+    "display_name": "iShares Russell 2000 ETF",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IWM"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IWM"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.efa",
+    "canonical_symbol": "EFA",
+    "display_name": "iShares MSCI EAFE ETF",
+    "asset_class": "equity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "EFA"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "EFA"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.ief",
+    "canonical_symbol": "IEF",
+    "display_name": "iShares 7-10 Year Treasury Bond ETF",
+    "asset_class": "fixed_income",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IEF"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IEF"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.shy",
+    "canonical_symbol": "SHY",
+    "display_name": "iShares 1-3 Year Treasury Bond ETF",
+    "asset_class": "fixed_income",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "SHY"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "SHY"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.agg",
+    "canonical_symbol": "AGG",
+    "display_name": "iShares Core U.S. Aggregate Bond ETF",
+    "asset_class": "fixed_income",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "AGG"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "AGG"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.slv",
+    "canonical_symbol": "SLV",
+    "display_name": "iShares Silver Trust",
+    "asset_class": "commodity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "SLV"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "SLV"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.iau",
+    "canonical_symbol": "IAU",
+    "display_name": "iShares Gold Trust",
+    "asset_class": "commodity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IAU"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IAU"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.ibit",
+    "canonical_symbol": "IBIT",
+    "display_name": "iShares Bitcoin Trust ETF",
+    "asset_class": "cryptocurrency",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IBIT"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IBIT"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.dbc",
+    "canonical_symbol": "DBC",
+    "display_name": "Invesco DB Commodity Index Tracking Fund",
+    "asset_class": "commodity",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "DBC"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "DBC"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.uup",
+    "canonical_symbol": "UUP",
+    "display_name": "Invesco DB US Dollar Index Bullish Fund",
+    "asset_class": "foreign_exchange",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "UUP"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "UUP"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "etf.us.fxe",
+    "canonical_symbol": "FXE",
+    "display_name": "Invesco CurrencyShares Euro Trust",
+    "asset_class": "foreign_exchange",
+    "instrument_type": "etf",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "ARCX",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "FXE"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "FXE"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.aapl",
+    "canonical_symbol": "AAPL",
+    "display_name": "Apple Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "AAPL"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "AAPL"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.goog",
+    "canonical_symbol": "GOOG",
+    "display_name": "Alphabet Inc. Class C",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "GOOG"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "GOOG"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.bmnr",
+    "canonical_symbol": "BMNR",
+    "display_name": "BitMine Immersion Technologies, Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "BMNR"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "BMNR"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.mstr",
+    "canonical_symbol": "MSTR",
+    "display_name": "Strategy Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "MSTR"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "MSTR"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.coin",
+    "canonical_symbol": "COIN",
+    "display_name": "Coinbase Global, Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "COIN"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "COIN"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.tsla",
+    "canonical_symbol": "TSLA",
+    "display_name": "Tesla, Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "TSLA"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "TSLA"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.pltr",
+    "canonical_symbol": "PLTR",
+    "display_name": "Palantir Technologies Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "PLTR"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "PLTR"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.orcl",
+    "canonical_symbol": "ORCL",
+    "display_name": "Oracle Corporation",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNYS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "ORCL"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "ORCL"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.avgo",
+    "canonical_symbol": "AVGO",
+    "display_name": "Broadcom Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "AVGO"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "AVGO"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.asml",
+    "canonical_symbol": "ASML",
+    "display_name": "ASML Holding N.V. ADR",
+    "asset_class": "equity",
+    "instrument_type": "adr",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "ASML"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "ASML"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.amzn",
+    "canonical_symbol": "AMZN",
+    "display_name": "Amazon.com, Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "AMZN"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "AMZN"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.msft",
+    "canonical_symbol": "MSFT",
+    "display_name": "Microsoft Corporation",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "MSFT"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "MSFT"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.amd",
+    "canonical_symbol": "AMD",
+    "display_name": "Advanced Micro Devices, Inc.",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "AMD"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "AMD"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.ibm",
+    "canonical_symbol": "IBM",
+    "display_name": "International Business Machines Corporation",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNYS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "IBM"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "IBM"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "equity.us.nvda",
+    "canonical_symbol": "NVDA",
+    "display_name": "NVIDIA Corporation",
+    "asset_class": "equity",
+    "instrument_type": "common_stock",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "US_EQUITY",
+    "primary_listing_mic": "XNAS",
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "NVDA"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "NVDA"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "market_calendar_close"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "fx.usd-jpy",
+    "canonical_symbol": "USD/JPY",
+    "display_name": "U.S. Dollar / Japanese Yen",
+    "asset_class": "foreign_exchange",
+    "instrument_type": "spot_fx",
+    "quote_currency": "JPY",
+    "quote_unit": "currency_price",
+    "market_calendar": "FX_24_5",
+    "primary_listing_mic": null,
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "JPY=X"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "JPY=X"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.0001,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": false,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "fx_24_5_utc_session"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "fx.gbp-usd",
+    "canonical_symbol": "GBP/USD",
+    "display_name": "British Pound / U.S. Dollar",
+    "asset_class": "foreign_exchange",
+    "instrument_type": "spot_fx",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "FX_24_5",
+    "primary_listing_mic": null,
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "GBPUSD=X"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "GBPUSD=X"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.0001,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": false,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "fx_24_5_utc_session"
+    },
+    "active": true
+  },
+  {
+    "schema_version": "1.1.0",
+    "instrument_id": "crypto.ethereum-usd",
+    "canonical_symbol": "ETH/USD",
+    "display_name": "Ethereum / U.S. Dollar",
+    "asset_class": "cryptocurrency",
+    "instrument_type": "spot_crypto",
+    "quote_currency": "USD",
+    "quote_unit": "currency_price",
+    "market_calendar": "CRYPTO_24_7",
+    "primary_listing_mic": null,
+    "benchmark_administrator": null,
+    "provider_identifiers": {
+      "yahoo": "ETH-USD"
+    },
+    "primary_source": {
+      "provider": "yahoo",
+      "symbol": "ETH-USD"
+    },
+    "fallback_sources": [],
+    "price_frequency": "1d",
+    "supported_intervals": [
+      "1d"
+    ],
+    "continuous_contract": null,
+    "audit_profile": {
+      "price_tolerance": {
+        "absolute": 0.01,
+        "relative": 0.000001
+      },
+      "volume": {
+        "meaningful": true,
+        "relative_tolerance": 0.01
+      },
+      "completion_rule": "crypto_24_7_utc_session"
+    },
+    "active": true
   }
 ]

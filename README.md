@@ -358,9 +358,22 @@ market calendar, provider identifiers, intended primary routing, fallback
 sources, intervals, and active status. It does not include editorial, ranking,
 simulation, strategy, or execution fields.
 
+The catalog accepts legacy schema `1.0.0` records and provides schema `1.1.0`
+normalization through `normalize_instrument_catalog()`. In schema 1.1.0,
+`market_calendar` means only the completed-bar session calendar; legacy
+MIC-like values such as `XNYS` are calendar aliases, not venue metadata.
+`primary_listing_mic` is a separate nullable venue field, `quote_unit` is
+required, and `audit_profile` explicitly controls tolerance, volume semantics,
+and completion rules. Batch 1 currently covers the maintained U.S. equity/ETF
+symbols and Batch 2 covers the maintained FX and cryptocurrency symbols. Global
+indices and continuous futures remain intentionally unclassified.
+
 ```r
 catalog <- get_instrument_catalog()
 validate_instrument_catalog()
+
+# Refined schema 1.1.0 view; provider identifiers and sync behavior are unchanged.
+catalog_1_1 <- normalize_instrument_catalog()
 
 # Provider-neutral 4H linear USDT-margined perpetual swaps.
 okx_perpetuals <- get_okx_perpetual_catalog()

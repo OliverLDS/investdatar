@@ -3,6 +3,8 @@ Title: Investment Data Access and Preparation Toolkit
 Version: 0.1.6
 Authors@R: 
     person("Oliver", "Zhou", email = "oliver.yxzhou@gmail.com", role = c("aut", "cre"))
+Author: Oliver Zhou [aut, cre]
+Maintainer: Oliver Zhou <oliver.yxzhou@gmail.com>
 Description: A toolkit for loading, transforming, and managing 
     structured investment-related data. Includes functions for retrieving
     macroeconomic and public financial series, regulatory filings, futures
