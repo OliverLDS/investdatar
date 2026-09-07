@@ -113,7 +113,7 @@
 }
 
 .yahoo_overlap_compare_rows <- function(ticker, instrument_id, cached, yahoo, profile, calendar, from, to,
-                                        session_metadata = NULL) {
+                                        session_metadata = NULL, comparison_provider = "Yahoo") {
   all_dates <- seq(as.Date(from), as.Date(to), by = "day")
   nontrading <- .yahoo_overlap_nontrading_dates(calendar, all_dates)
   cached_dates <- unique(cached$date)
@@ -126,7 +126,7 @@
   missing_cache <- date_setdiff(missing_cache, nontrading)
   if (length(missing_cache)) {
     issues[[length(issues) + 1L]] <- data.table::rbindlist(lapply(missing_cache, function(d) {
-      .yahoo_overlap_issue(ticker, instrument_id, d, "missing_in_cache", detail = "Completed date returned by Yahoo is absent locally.")
+      .yahoo_overlap_issue(ticker, instrument_id, d, "missing_in_cache", detail = paste0("Completed date returned by ", comparison_provider, " is absent locally."))
     }))
   }
   missing_yahoo <- date_setdiff(cached_dates, yahoo_dates)
@@ -158,7 +158,7 @@
     issues[[length(issues) + 1L]] <- data.table::rbindlist(lapply(missing_yahoo, function(d) {
       row <- cached[cached$date == d]
       .yahoo_overlap_issue(ticker, instrument_id, d, "yahoo_missing_completed_bar",
-                           cached_source = row$source, detail = "Completed local date was not returned by Yahoo.")
+                           cached_source = row$source, detail = paste0("Completed local date was not returned by ", comparison_provider, "."))
     }))
   }
 
@@ -179,7 +179,7 @@
             ticker, instrument_id, d, "ohlc_discrepancy", field,
             old[[field]], new[[field]], difference,
             difference / max(abs(old[[field]]), abs(new[[field]]), 1e-12),
-            old$source, new$source, detail = "OHLC difference exceeds asset-appropriate tolerance."
+        old$source, new$source, detail = paste0("OHLC difference exceeds asset-appropriate tolerance in the ", comparison_provider, " comparison.")
           )
         }
       }
@@ -191,7 +191,7 @@
         issues[[length(issues) + 1L]] <- .yahoo_overlap_issue(
           ticker, instrument_id, d, "volume_discrepancy", "volume", old$volume, new$volume,
           difference, relative, old$source, new$source,
-          detail = "Volume differs by at least one unit and more than 1 percent."
+        detail = paste0("Volume differs by at least one unit and more than 1 percent in the ", comparison_provider, " comparison.")
         )
       }
     }
@@ -199,7 +199,7 @@
       issues[[length(issues) + 1L]] <- .yahoo_overlap_issue(
         ticker, instrument_id, d, "provenance_change", "source", old$source, new$source,
         cached_source = old$source, yahoo_source = new$source, severity = "informational",
-        related_integrity_issue = FALSE, detail = "Cached row provenance differs from the Yahoo audit fetch."
+        related_integrity_issue = FALSE, detail = paste0("Cached row provenance differs from the ", comparison_provider, " audit fetch.")
       )
     }
   }
@@ -275,6 +275,90 @@
     fallback_source = NULL, max_attempts = max_attempts,
     retry_delay_seconds = retry_delay_seconds, require_start_coverage = FALSE
   )
+}
+
+.yahoo_overlap_fallback_mapping <- function(registry, ticker) {
+  if (!ticker %in% c("000300.SS", "CNH=X") ||
+      !all(c("fallback_source", "fallback_ticker") %in% names(registry))) {
+    return(NULL)
+  }
+  row <- registry[registry[["yahoo_finance_ticker"]] == ticker]
+  if (nrow(row) != 1L || is.na(row$fallback_source[[1L]]) ||
+      !identical(tolower(row$fallback_source[[1L]]), "eastmoney") ||
+      is.na(row$fallback_ticker[[1L]]) || !nzchar(row$fallback_ticker[[1L]])) {
+    return(NULL)
+  }
+  list(provider = "eastmoney", symbol = row$fallback_ticker[[1L]])
+}
+
+.yahoo_overlap_has_usable_ohlc <- function(x) {
+  nrow(x) > 0L && all(c("open", "high", "low", "close") %in% names(x)) && any(vapply(
+    seq_len(nrow(x)), function(i) all(is.finite(as.numeric(x[i, .(open, high, low, close)]))), logical(1)
+  ))
+}
+
+.yahoo_overlap_handle_unavailable <- function(ticker, instrument_id, cached, profile,
+                                              calendar, requested_from, requested_to,
+                                              primary_error, fallback_mapping,
+                                              fallback_corroboration) {
+  findings <- list(.yahoo_overlap_issue(
+    ticker, instrument_id, requested_to, "yahoo_request_error",
+    severity = "availability", related_integrity_issue = FALSE,
+    detail = primary_error
+  ))
+  report <- list(
+    status = "audit_incomplete_provider_unavailable",
+    yahoo_error = primary_error,
+    fallback_attempted = FALSE,
+    fallback_status = "not_requested",
+    integrity_issue_rows = 0L,
+    informational_rows = 0L
+  )
+  if (!is.null(fallback_mapping) && fallback_corroboration != "none") {
+    report$fallback_attempted <- TRUE
+    fallback <- tryCatch(
+      .fetch_eastmoney_ohlc(fallback_mapping$symbol, label = ticker,
+                            from = requested_from, to = requested_to),
+      error = function(e) e
+    )
+    fallback_usable <- !inherits(fallback, "error") && .yahoo_overlap_has_usable_ohlc(fallback)
+    if (fallback_usable) {
+      compared <- .yahoo_overlap_compare_rows(
+        ticker, instrument_id, cached, fallback, profile, calendar,
+        requested_from, requested_to, comparison_provider = "Eastmoney"
+      )
+      if (nrow(cached) == 0L) {
+        compared$findings <- data.table::rbindlist(list(
+          .yahoo_overlap_issue(ticker, instrument_id, requested_to, "invalid_cached_ohlc",
+                               severity = "integrity",
+                               detail = "No completed local rows were available in the audit window."),
+          compared$findings
+        ), fill = TRUE)
+      }
+      if (nrow(compared$findings)) findings <- c(findings, list(compared$findings))
+      report$status <- if (any(compared$findings$severity == "integrity")) "integrity_issue" else "audited"
+      report$fallback_status <- "success"
+      report$corroboration_status <- "success"
+      report$fallback_provider <- fallback_mapping$provider
+      report$fallback_symbol <- fallback_mapping$symbol
+      report$fallback_rows <- nrow(fallback)
+      report$integrity_issue_rows <- sum(compared$findings$severity == "integrity")
+      report$informational_rows <- sum(compared$findings$severity == "informational")
+      report$calendar_nontrading_dates <- as.character(compared$nontrading_dates)
+    } else {
+      fallback_error <- if (inherits(fallback, "error")) conditionMessage(fallback) else
+        "Eastmoney returned no usable OHLC rows for the requested overlap."
+      report$fallback_status <- "error"
+      report$corroboration_status <- "error"
+      report$fallback_error <- fallback_error
+      findings <- list(.yahoo_overlap_issue(
+        ticker, instrument_id, requested_to, "audit_incomplete_provider_unavailable",
+        severity = "availability", related_integrity_issue = FALSE,
+        detail = paste0("Yahoo error: ", primary_error, " Eastmoney error: ", fallback_error)
+      ))
+    }
+  }
+  list(findings = findings, report = report)
 }
 
 #' Audit Recent Yahoo Finance Cache Overlaps
@@ -373,24 +457,20 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
       cache_path = normalizePath(file.path(local_path, .quantmod_local_filename(ticker, "yahoo", "1d")), winslash = "/", mustWork = FALSE),
       cached_rows = nrow(cached), tolerance = profile, corroboration_status = "not_needed"
     )
-    if (nrow(cached) == 0L) {
-      findings[[length(findings) + 1L]] <- .yahoo_overlap_issue(
-        ticker, catalog$instrument_id[[catalog_index]], requested_to, "invalid_cached_ohlc",
-        severity = "integrity", detail = "No completed local rows were available in the audit window."
-      )
-    }
+    fallback_mapping <- .yahoo_overlap_fallback_mapping(registry, ticker)
     yahoo <- tryCatch(
       .yahoo_overlap_fetch(yahoo_symbol, requested_from, requested_to, calendar = calendar,
                            max_attempts = max_attempts, retry_delay_seconds = retry_delay_seconds),
       error = function(e) e
     )
     if (inherits(yahoo, "error")) {
-      findings[[length(findings) + 1L]] <- .yahoo_overlap_issue(
-        ticker, catalog$instrument_id[[catalog_index]], requested_to, "yahoo_request_error",
-        severity = "integrity", detail = conditionMessage(yahoo)
+      unavailable <- .yahoo_overlap_handle_unavailable(
+        ticker, catalog$instrument_id[[catalog_index]], cached, profile, calendar,
+        requested_from, requested_to, conditionMessage(yahoo), fallback_mapping,
+        fallback_corroboration
       )
-      report$status <- "integrity_issue"
-      report$error <- conditionMessage(yahoo)
+      findings <- c(findings, unavailable$findings)
+      report <- modifyList(report, unavailable$report)
       report$yahoo_rows <- 0L
     } else {
       session_metadata <- attr(yahoo, "investdatar_yahoo_session_metadata")
@@ -398,19 +478,40 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
       yahoo[, date := as.Date(date)]
       yahoo <- yahoo[date >= requested_from & date <= requested_to]
       report$yahoo_rows <- nrow(yahoo)
-      compared <- .yahoo_overlap_compare_rows(
-        ticker, catalog$instrument_id[[catalog_index]], cached, yahoo, profile, calendar,
-        requested_from, requested_to,
-        session_metadata = session_metadata
-      )
-      if (nrow(compared$findings)) findings[[length(findings) + 1L]] <- compared$findings
-      integrity_issue <- nrow(compared$findings[compared$findings[["severity"]] == "integrity"]) > 0L
-      if (integrity_issue) report$status <- "integrity_issue"
-      report$integrity_issue_rows <- sum(compared$findings$severity == "integrity")
-      report$informational_rows <- sum(compared$findings$severity == "informational")
-      report$calendar_nontrading_dates <- as.character(compared$nontrading_dates)
+      yahoo_usable <- .yahoo_overlap_has_usable_ohlc(yahoo)
+      if (!yahoo_usable) {
+        unavailable <- .yahoo_overlap_handle_unavailable(
+          ticker, catalog$instrument_id[[catalog_index]], cached, profile, calendar,
+          requested_from, requested_to,
+          paste0("Yahoo returned no usable OHLC rows for the requested overlap (",
+                 as.character(requested_from), " through ", as.character(requested_to), ")."),
+          fallback_mapping, fallback_corroboration
+        )
+        findings <- c(findings, unavailable$findings)
+        report <- modifyList(report, unavailable$report)
+      } else {
+        compared <- .yahoo_overlap_compare_rows(
+          ticker, catalog$instrument_id[[catalog_index]], cached, yahoo, profile, calendar,
+          requested_from, requested_to, session_metadata = session_metadata
+        )
+        if (nrow(cached) == 0L) {
+          compared$findings <- data.table::rbindlist(list(
+            .yahoo_overlap_issue(ticker, catalog$instrument_id[[catalog_index]], requested_to,
+                                 "invalid_cached_ohlc", severity = "integrity",
+                                 detail = "No completed local rows were available in the audit window."),
+            compared$findings
+          ), fill = TRUE)
+        }
+        if (nrow(compared$findings)) findings[[length(findings) + 1L]] <- compared$findings
+        integrity_issue <- nrow(compared$findings[compared$findings[["severity"]] == "integrity"]) > 0L
+        if (integrity_issue) report$status <- "integrity_issue"
+        report$integrity_issue_rows <- sum(compared$findings$severity == "integrity")
+        report$informational_rows <- sum(compared$findings$severity == "informational")
+        report$calendar_nontrading_dates <- as.character(compared$nontrading_dates)
+      }
 
-      registry_row <- registry[registry[["yahoo_finance_ticker"]] == ticker]
+      if (yahoo_usable) {
+        registry_row <- registry[registry[["yahoo_finance_ticker"]] == ticker]
       fallback_source <- if ("fallback_source" %in% names(registry) && nrow(registry_row) > 0L) {
         as.character(registry_row[["fallback_source"]][[1L]])
       } else ""
@@ -431,8 +532,9 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
         if (inherits(corroboration, "error")) report$corroboration_error <- conditionMessage(corroboration)
       } else if (eligible_corroboration) {
         report$corroboration_status <- if (fallback_corroboration == "none") "not_requested" else "not_needed"
-      } else {
-        report$corroboration_status <- "unavailable"
+        } else {
+          report$corroboration_status <- "unavailable"
+        }
       }
     }
     instrument_reports[[length(instrument_reports) + 1L]] <- report
@@ -443,6 +545,7 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
   skipped_count <- sum(vapply(instrument_reports, function(x) identical(x$status, "skipped_missing_catalog_metadata"), logical(1)))
   informational_count <- sum(vapply(instrument_reports, function(x) isTRUE(x$informational_rows > 0L), logical(1)))
   integrity_count <- sum(vapply(instrument_reports, function(x) identical(x$status, "integrity_issue"), logical(1)))
+  unavailable_count <- sum(vapply(instrument_reports, function(x) identical(x$status, "audit_incomplete_provider_unavailable"), logical(1)))
   generated_at <- as.POSIXct(Sys.time(), tz = "UTC")
   paths <- .yahoo_overlap_audit_paths(output_dir, generated_at)
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -458,6 +561,7 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
     manifest_summary = list(
       registered = nrow(registry), audited = audited_count, skipped = skipped_count,
       informational_instruments = informational_count, integrity_issue_instruments = integrity_count,
+      provider_unavailable_instruments = unavailable_count,
       issue_rows = nrow(all_findings)
     ),
     instruments = instrument_reports,

@@ -197,3 +197,65 @@ test_that("Yahoo overlap audit uses Eastmoney only for permitted fallback corrob
   expect_true(any(out$findings$issue_type == "ohlc_discrepancy"))
   expect_true(all(out$findings[out$findings$issue_type == "provenance_change", related_integrity_issue]))
 })
+
+test_that("Yahoo unavailability uses a successful Eastmoney comparison", {
+  local <- .yahoo_overlap_test_rows(source = "eastmoney")
+  local[, `:=`(symbol = "000300.SS", close = c(100, 101))]
+  registry <- data.table::data.table(
+    yahoo_finance_ticker = "000300.SS", fallback_source = "eastmoney", fallback_ticker = "1.000300"
+  )
+  catalog <- .yahoo_overlap_test_catalog(list(list(
+    instrument_id = "index.cn.csi-300", canonical_symbol = "CSI300", asset_class = "equity",
+    instrument_type = "equity_index", market_calendar = "XSHG", provider_identifiers = list(yahoo = "000300.SS")
+  )))
+  out <- testthat::with_mocked_bindings(
+    get_instrument_catalog = function(...) catalog,
+    get_completed_local_quantmod_OHLC = function(...) local,
+    .yahoo_overlap_fetch = function(...) stop("Yahoo unavailable", call. = FALSE),
+    .fetch_eastmoney_ohlc = function(...) local,
+    audit_yahoofinance_recent_overlap(
+      registry = registry, local_path = withr::local_tempdir(), output_dir = withr::local_tempdir(),
+      as_of = as.POSIXct("2026-09-07", tz = "UTC"), overlap_days = 5L
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(out$summary$manifest_summary$integrity_issue_instruments, 0L)
+  expect_equal(out$summary$manifest_summary$provider_unavailable_instruments, 0L)
+  expect_true(any(out$findings$issue_type == "yahoo_request_error"))
+  expect_true(all(out$findings[out$findings$issue_type == "yahoo_request_error", severity] == "availability"))
+  expect_false(any(out$findings$issue_type == "yahoo_missing_completed_bar"))
+  expect_equal(out$summary$manifest_summary$audited, 1L)
+  report <- jsonlite::read_json(out$artifact_paths$json, simplifyVector = FALSE)
+  expect_equal(Filter(function(x) identical(x$ticker, "000300.SS"), report$instruments)[[1L]]$corroboration_status, "success")
+})
+
+test_that("Yahoo and Eastmoney unavailability is reported once without cache integrity claims", {
+  local <- .yahoo_overlap_test_rows(source = "eastmoney")
+  local[, symbol := "000300.SS"]
+  registry <- data.table::data.table(
+    yahoo_finance_ticker = "000300.SS", fallback_source = "eastmoney", fallback_ticker = "1.000300"
+  )
+  catalog <- .yahoo_overlap_test_catalog(list(list(
+    instrument_id = "index.cn.csi-300", canonical_symbol = "CSI300", asset_class = "equity",
+    instrument_type = "equity_index", market_calendar = "XSHG", provider_identifiers = list(yahoo = "000300.SS")
+  )))
+  out <- testthat::with_mocked_bindings(
+    get_instrument_catalog = function(...) catalog,
+    get_completed_local_quantmod_OHLC = function(...) local,
+    .yahoo_overlap_fetch = function(...) stop("Yahoo unavailable", call. = FALSE),
+    .fetch_eastmoney_ohlc = function(...) stop("Eastmoney unavailable", call. = FALSE),
+    audit_yahoofinance_recent_overlap(
+      registry = registry, local_path = withr::local_tempdir(), output_dir = withr::local_tempdir(),
+      as_of = as.POSIXct("2026-09-07", tz = "UTC"), overlap_days = 5L
+    ),
+    .package = "investdatar"
+  )
+  expect_equal(out$summary$manifest_summary$audited, 0L)
+  expect_equal(out$summary$manifest_summary$provider_unavailable_instruments, 1L)
+  expect_equal(sum(out$findings$issue_type == "audit_incomplete_provider_unavailable"), 1L)
+  expect_equal(out$findings[issue_type == "audit_incomplete_provider_unavailable", severity], "availability")
+  expect_match(out$findings[issue_type == "audit_incomplete_provider_unavailable", detail], "Yahoo error:.*Eastmoney error:")
+  expect_false(any(out$findings$issue_type %in% c("invalid_cached_ohlc", "yahoo_missing_completed_bar")))
+  report <- jsonlite::read_json(out$artifact_paths$json, simplifyVector = FALSE)
+  expect_equal(Filter(function(x) identical(x$ticker, "000300.SS"), report$instruments)[[1L]]$corroboration_status, "error")
+})

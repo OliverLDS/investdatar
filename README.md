@@ -368,6 +368,15 @@ and completion rules. Batch 1 currently covers the maintained U.S. equity/ETF
 symbols and Batch 2 covers the maintained FX and cryptocurrency symbols. Global
 indices and continuous futures remain intentionally unclassified.
 
+The read-only Yahoo overlap audit distinguishes provider availability from
+cache integrity. A window with no usable Yahoo rows emits one availability
+finding and does not infer missing or invalid cache data. For `000300.SS` and
+`CNH=X`, an Eastmoney comparison is attempted under `fallback_corroboration =
+"on_issue"`; a successful comparison can expose actual integrity differences,
+while failure of both sources produces `audit_incomplete_provider_unavailable`
+with both provider errors. Normal synchronization remains strict and still
+reports a failed Yahoo/Eastmoney chain as a provider failure.
+
 ```r
 catalog <- get_instrument_catalog()
 validate_instrument_catalog()
