@@ -33,9 +33,32 @@ test_that("instrument catalog has a valid provider-neutral schema", {
     "equity", "fixed_income", "commodity", "foreign_exchange", "cryptocurrency"
   )))
   expect_true(all(validation$catalog$market_calendar %in% c(
-    "US_EQUITY", "XNYS", "XSHG", "FX_24_5", "CRYPTO_24_7"
+    "US_EQUITY", "XNYS", "XSHG", "XHKG", "XJPX", "EU_EQUITY",
+    "US_TREASURY", "CME_FUTURES", "ICE_FUTURES", "FX_24_5", "CRYPTO_24_7"
   )))
   expect_true(all(validation$catalog$price_frequency %in% c("1d", "4h")))
+})
+
+test_that("rates, indices, and continuous futures have explicit 1.1 metadata", {
+  catalog <- investdatar::get_instrument_catalog(
+    .instrument_catalog_test_path(), .yahoo_registry_test_path(), schema_version = "1.1.0"
+  )
+  expected <- c("^IRX", "ZT=F", "^TNX", "^TYX", "^GSPC", "^IXIC", "^RUT", "^VIX",
+                "CL=F", "BZ=F", "GC=F", "SI=F", "HG=F", "^STOXX50E", "^N225", "^HSI")
+  rows <- catalog[vapply(provider_identifiers, function(x) isTRUE(x$yahoo %in% expected), logical(1))]
+  expect_equal(nrow(rows), length(expected))
+  expect_true(all(rows$schema_version == "1.1.0"))
+  expect_true(all(rows$quote_unit %in% c("index_points", "yield_percent", "contract_price")))
+  expect_true(all(vapply(rows$audit_profile, function(x) isTRUE(is.list(x$volume)) &&
+    is.logical(x$volume$meaningful) && length(x$completion_rule) == 1L, logical(1))))
+  futures <- rows[instrument_type == "future"]
+  expect_setequal(futures$market_calendar, c("CME_FUTURES", "ICE_FUTURES"))
+  expect_true(all(vapply(futures$continuous_contract, function(x) {
+    identical(x$roll_treatment, "provider_defined") &&
+      identical(x$volume_semantics, "provider_defined_continuous_series") &&
+      identical(x$deliverable_contract, FALSE)
+  }, logical(1))))
+  expect_true(all(is.na(rows$primary_listing_mic)))
 })
 
 test_that("instrument catalog has unique stable identifiers and symbols", {

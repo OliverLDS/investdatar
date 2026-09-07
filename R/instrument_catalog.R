@@ -11,7 +11,8 @@
 
 .instrument_catalog_market_calendars <- c(
   "US_EQUITY", "US_FUTURES", "CME_FUTURES", "ICE_FUTURES", "XSHG",
-  "XHKG", "XJPX", "EU_EQUITY", "FX_24_5", "CRYPTO_24_7", "XNYS"
+  "XHKG", "XJPX", "EU_EQUITY", "US_TREASURY", "FX_24_5",
+  "CRYPTO_24_7", "XNYS"
 )
 
 .instrument_catalog_instrument_types <- c(
@@ -186,6 +187,7 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
     if (!quote_currency_valid) {
       errors <- .instrument_catalog_add_error(errors, "quote_currency", instrument_id, "quote_currency must be a three-letter uppercase code or USDT/USDC.")
     }
+    identifiers <- record$provider_identifiers
     if (identical(record$schema_version, "1.1.0")) {
       if (!.instrument_catalog_is_scalar_string(record$quote_unit) || !record$quote_unit %in% .instrument_catalog_quote_units) {
         errors <- .instrument_catalog_add_error(errors, "quote_unit", instrument_id, "quote_unit must be a valid schema 1.1.0 enum value.")
@@ -202,6 +204,32 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
       }
       if (!is.list(record$audit_profile) || is.null(record$audit_profile$price_tolerance) || is.null(record$audit_profile$completion_rule)) {
         errors <- .instrument_catalog_add_error(errors, "audit_profile", instrument_id, "audit_profile must define price_tolerance and completion_rule.")
+      } else {
+        tolerance <- record$audit_profile$price_tolerance
+        volume <- record$audit_profile$volume
+        if (!is.numeric(tolerance$absolute) || length(tolerance$absolute) != 1L || !is.finite(tolerance$absolute) ||
+            !is.numeric(tolerance$relative) || length(tolerance$relative) != 1L || !is.finite(tolerance$relative)) {
+          errors <- .instrument_catalog_add_error(errors, "audit_profile", instrument_id, "audit_profile price_tolerance must define finite absolute and relative numbers.")
+        }
+        if (!is.list(volume) || !is.logical(volume$meaningful) || length(volume$meaningful) != 1L || is.na(volume$meaningful)) {
+          errors <- .instrument_catalog_add_error(errors, "audit_profile", instrument_id, "audit_profile volume must define a logical meaningful flag.")
+        }
+      }
+      if (identical(record$instrument_type, "future")) {
+        continuous <- record$continuous_contract
+        required_continuous <- c("provider", "provider_symbol", "contract_family", "roll_treatment", "volume_semantics", "deliverable_contract")
+        if (!is.list(continuous) || !identical(sort(names(continuous)), sort(required_continuous)) ||
+            !.instrument_catalog_is_scalar_string(continuous$provider) ||
+            !.instrument_catalog_is_scalar_string(continuous$provider_symbol) ||
+            !.instrument_catalog_is_scalar_string(continuous$contract_family) ||
+            !.instrument_catalog_is_scalar_string(continuous$roll_treatment) ||
+            !.instrument_catalog_is_scalar_string(continuous$volume_semantics) ||
+            !is.logical(continuous$deliverable_contract) || length(continuous$deliverable_contract) != 1L ||
+            is.na(continuous$deliverable_contract) || isTRUE(continuous$deliverable_contract)) {
+          errors <- .instrument_catalog_add_error(errors, "continuous_contract", instrument_id, "Continuous futures must declare provider-defined non-deliverable-series metadata.")
+        } else if (!identical(continuous$provider_symbol, identifiers[[continuous$provider]])) {
+          errors <- .instrument_catalog_add_error(errors, "continuous_contract", instrument_id, "continuous_contract provider_symbol must match provider_identifiers.")
+        }
       }
     }
     if (!.instrument_catalog_is_scalar_string(record$price_frequency) || !record$price_frequency %in% .instrument_catalog_price_frequencies) {
@@ -216,7 +244,6 @@ validate_instrument_catalog <- function(catalog_path = .instrument_catalog_seed_
       errors <- .instrument_catalog_add_error(errors, "supported_intervals", instrument_id, "supported_intervals must contain exactly price_frequency ('1d' or '4h').")
     }
 
-    identifiers <- record$provider_identifiers
     if (!is.list(identifiers) || length(identifiers) == 0L || is.null(names(identifiers)) || any(!nzchar(names(identifiers))) || any(!vapply(identifiers, .instrument_catalog_is_scalar_string, logical(1)))) {
       errors <- .instrument_catalog_add_error(errors, "provider_identifiers", instrument_id, "provider_identifiers must be a non-empty named mapping of provider symbols.")
     }

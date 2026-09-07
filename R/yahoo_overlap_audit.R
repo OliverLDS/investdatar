@@ -15,6 +15,7 @@
     calendar,
     XNYS = "America/New_York",
     US_EQUITY = "America/New_York",
+    US_TREASURY = "America/New_York",
     US_FUTURES = "America/New_York",
     CME_FUTURES = "America/Chicago",
     ICE_FUTURES = "America/New_York",
@@ -27,7 +28,9 @@
 }
 
 .yahoo_overlap_known_holidays <- function(calendar, years) {
-  if (!identical(calendar, "XNYS")) return(as.Date(character()))
+  if (!calendar %in% c("XNYS", "US_EQUITY", "US_TREASURY", "US_FUTURES", "CME_FUTURES", "ICE_FUTURES")) {
+    return(as.Date(character()))
+  }
   years <- sort(unique(as.integer(years)))
   holidays <- unlist(lapply(years, function(year) {
     dates <- as.Date(sprintf("%s-%s", year, c("01-01", "06-19", "07-04", "12-25")))
@@ -54,6 +57,17 @@
     )
   }), use.names = FALSE)
   as.Date(holidays, origin = "1970-01-01")
+}
+
+.yahoo_overlap_catalog_skip_reason <- function(ticker) {
+  reasons <- c(
+    "DX-Y.NYB" = paste(
+      "ICE Dollar Index identity is known, but its Yahoo daily completed-bar",
+      "calendar has not been verified for this audit contract."
+    )
+  )
+  if (ticker %in% names(reasons)) unname(reasons[[ticker]]) else
+    "No provider-neutral instrument catalog entry defines calendar, asset class, or tolerances."
 }
 
 .yahoo_overlap_nontrading_dates <- function(calendar, dates) {
@@ -428,10 +442,11 @@ audit_yahoofinance_recent_overlap <- function(registry = get_yahoofinance_regist
       findings[[length(findings) + 1L]] <- .yahoo_overlap_issue(
         ticker, NA_character_, as.Date(NA), "skipped_missing_catalog_metadata",
         severity = "skipped", related_integrity_issue = FALSE,
-        detail = "No provider-neutral instrument catalog entry defines calendar, asset class, or tolerances."
+        detail = .yahoo_overlap_catalog_skip_reason(ticker)
       )
       instrument_reports[[length(instrument_reports) + 1L]] <- list(
-        ticker = ticker, status = "skipped_missing_catalog_metadata", catalog_metadata = FALSE
+        ticker = ticker, status = "skipped_missing_catalog_metadata", catalog_metadata = FALSE,
+        skip_reason = .yahoo_overlap_catalog_skip_reason(ticker)
       )
       next
     }

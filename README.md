@@ -356,7 +356,9 @@ perpetual-swap subset. The catalog includes stable
 `instrument_id` and `canonical_symbol` fields, market taxonomy, quote currency,
 market calendar, provider identifiers, intended primary routing, fallback
 sources, intervals, and active status. It does not include editorial, ranking,
-simulation, strategy, or execution fields.
+simulation, strategy, or execution fields. Batch 3 adds Treasury yields and
+U.S., European, Japanese, and Hong Kong indices. Batch 4 adds CME and ICE
+continuous futures for Treasury notes, crude oil, gold, silver, and copper.
 
 The catalog accepts legacy schema `1.0.0` records and provides schema `1.1.0`
 normalization through `normalize_instrument_catalog()`. In schema 1.1.0,
@@ -364,9 +366,13 @@ normalization through `normalize_instrument_catalog()`. In schema 1.1.0,
 MIC-like values such as `XNYS` are calendar aliases, not venue metadata.
 `primary_listing_mic` is a separate nullable venue field, `quote_unit` is
 required, and `audit_profile` explicitly controls tolerance, volume semantics,
-and completion rules. Batch 1 currently covers the maintained U.S. equity/ETF
-symbols and Batch 2 covers the maintained FX and cryptocurrency symbols. Global
-indices and continuous futures remain intentionally unclassified.
+and completion rules. `primary_listing_mic` remains null for indices, yields,
+and continuous futures because it is venue provenance, not a completed-bar
+calendar. Yahoo futures symbols are provider-defined continuous series, not
+deliverable contracts; their roll treatment and volume semantics are explicit
+in `continuous_contract`. `DX-Y.NYB` remains skipped because its Yahoo daily
+completed-bar calendar is not sufficiently verified; the audit reports that
+structured reason rather than guessing.
 
 The read-only Yahoo overlap audit distinguishes provider availability from
 cache integrity. A window with no usable Yahoo rows emits one availability
